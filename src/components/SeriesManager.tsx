@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/collapsible';
 import { useSeasonsWithEpisodes, useCreateSeason, useDeleteSeason, useCreateEpisode, useDeleteEpisode } from '@/hooks/useSeasons';
 import { useUpload } from '@/hooks/useUpload';
+import { UploadProgressBar } from '@/components/UploadProgressBar';
 import { toast } from 'sonner';
 import type { Video, SeasonWithEpisodes } from '@/types/video';
 
@@ -31,7 +32,7 @@ export function SeriesManager({ video }: SeriesManagerProps) {
   const deleteSeason = useDeleteSeason();
   const createEpisode = useCreateEpisode();
   const deleteEpisode = useDeleteEpisode();
-  const { uploadVideo, uploadPoster, isUploading, progress } = useUpload();
+  const { uploadVideo, uploadPoster, isUploading, progress, error: uploadError, cancelUpload } = useUpload();
 
   const [expandedSeasons, setExpandedSeasons] = useState<string[]>([]);
   const [showAddSeason, setShowAddSeason] = useState(false);
@@ -469,13 +470,14 @@ export function SeriesManager({ video }: SeriesManagerProps) {
                         </div>
 
                         {/* Progress */}
-                        {isUploading && progress && (
-                          <div className="space-y-1">
-                            <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                              <div className="h-full bg-primary transition-all" style={{ width: `${progress.percentage}%` }} />
-                            </div>
-                            <p className="text-xs text-muted-foreground text-center">{progress.percentage}%</p>
-                          </div>
+                        {(isUploading || progress || uploadError) && (
+                          <UploadProgressBar
+                            progress={progress}
+                            isUploading={isUploading}
+                            error={uploadError}
+                            fileName={episodeVideoFile?.name || episodePosterFile?.name}
+                            onCancel={cancelUpload}
+                          />
                         )}
 
                         <div className="flex gap-2">
