@@ -11,7 +11,10 @@ import {
   Users,
   Video,
   LogOut,
-  ShieldAlert
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
+  Tv
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -32,12 +35,97 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
 import { useVideos, useCategories, useCreateVideo, useDeleteVideo } from '@/hooks/useVideos';
 import { useUpload } from '@/hooks/useUpload';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import type { ContentType } from '@/types/video';
+import type { ContentType, Video as VideoType } from '@/types/video';
+import { SeriesManager } from '@/components/SeriesManager';
+
+// Video list item component with series management
+function VideoListItem({ 
+  video, 
+  onDelete 
+}: { 
+  video: VideoType; 
+  onDelete: (id: string, title: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-secondary rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 p-3">
+        {/* Thumbnail */}
+        <div className="w-16 h-24 rounded overflow-hidden bg-muted flex-shrink-0">
+          {video.poster_url ? (
+            <img 
+              src={video.poster_url} 
+              alt={video.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Film className="w-6 h-6 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <Link 
+            to={`/watch/${video.slug}`}
+            className="font-medium text-foreground hover:text-primary truncate block"
+          >
+            {video.title}
+          </Link>
+          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+            <span className="px-1.5 py-0.5 bg-primary/20 text-primary rounded">
+              {video.type === 'movie' && 'Filme'}
+              {video.type === 'series' && 'Série'}
+              {video.type === 'trailer' && 'Trailer'}
+            </span>
+            {video.year && <span>{video.year}</span>}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1">
+          {video.type === 'series' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setExpanded(!expanded)}
+              className="text-primary hover:text-primary"
+            >
+              {expanded ? <ChevronUp className="w-4 h-4" /> : <Tv className="w-4 h-4" />}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(video.id, video.title)}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Series Manager */}
+      {video.type === 'series' && expanded && (
+        <div className="px-3 pb-3 border-t border-border pt-3">
+          <SeriesManager video={video} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -528,53 +616,11 @@ const Admin = () => {
               ) : videos && videos.length > 0 ? (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
                   {videos.map(video => (
-                    <div 
+                    <VideoListItem
                       key={video.id}
-                      className="flex items-center gap-3 p-3 bg-secondary rounded-lg"
-                    >
-                      {/* Thumbnail */}
-                      <div className="w-16 h-24 rounded overflow-hidden bg-muted flex-shrink-0">
-                        {video.poster_url ? (
-                          <img 
-                            src={video.poster_url} 
-                            alt={video.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Film className="w-6 h-6 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <Link 
-                          to={`/watch/${video.slug}`}
-                          className="font-medium text-foreground hover:text-primary truncate block"
-                        >
-                          {video.title}
-                        </Link>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <span className="px-1.5 py-0.5 bg-primary/20 text-primary rounded">
-                            {video.type === 'movie' && 'Filme'}
-                            {video.type === 'series' && 'Série'}
-                            {video.type === 'trailer' && 'Trailer'}
-                          </span>
-                          {video.year && <span>{video.year}</span>}
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(video.id, video.title)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                      video={video}
+                      onDelete={handleDelete}
+                    />
                   ))}
                 </div>
               ) : (
