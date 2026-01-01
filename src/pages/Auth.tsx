@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Film, Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,9 @@ const authSchema = z.object({
 });
 
 const Auth = () => {
+  const location = useLocation();
+  const isAdminRoute = location.pathname === '/auth/admin';
+  
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,14 +25,21 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  const { user, signIn, signUp, isLoading } = useAuth();
+  const { user, signIn, signUp, isLoading, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user && !isLoading) {
-      navigate('/admin');
+      if (isAdminRoute) {
+        // Admin route - redirect to admin panel
+        navigate('/admin');
+      } else {
+        // Normal user route - redirect to catalog
+        const from = location.state?.from || '/catalog';
+        navigate(from);
+      }
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, navigate, isAdminRoute, location.state]);
 
   const validateForm = () => {
     try {
@@ -67,7 +77,6 @@ const Auth = () => {
           }
         } else {
           toast.success('Login realizado com sucesso!');
-          navigate('/admin');
         }
       } else {
         const { data, error } = await signUp(email, password);
@@ -78,9 +87,8 @@ const Auth = () => {
             toast.error(error.message);
           }
         } else if (data.user) {
-          toast.success('Conta criada! Faça login para continuar.');
-          setIsLogin(true);
-          setPassword('');
+          toast.success('Conta criada com sucesso! Bem-vindo!');
+          // Auto-login after signup - signUp already creates a session
         }
       }
     } catch (err) {
@@ -130,12 +138,12 @@ const Auth = () => {
         <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-border">
           <CardHeader className="text-center">
             <CardTitle className="font-display text-2xl tracking-wide">
-              {isLogin ? 'ENTRAR' : 'CRIAR CONTA'}
+              {isLogin ? 'BEM-VINDO DE VOLTA' : 'CRIAR CONTA'}
             </CardTitle>
             <CardDescription>
               {isLogin
-                ? 'Acesse sua conta de administrador'
-                : 'Crie uma conta para gerenciar conteúdos'}
+                ? 'Entre para acessar o catálogo completo'
+                : 'Crie sua conta para começar a assistir'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -237,10 +245,12 @@ const Auth = () => {
           </CardContent>
         </Card>
 
-        {/* Info */}
-        <p className="mt-6 text-sm text-muted-foreground text-center max-w-sm">
-          ⚠️ Após criar sua conta, um administrador precisa conceder permissão de acesso.
-        </p>
+        {/* Admin Link */}
+        {isAdminRoute && (
+          <p className="mt-6 text-sm text-muted-foreground text-center max-w-sm">
+            ⚠️ Acesso para administradores. Após o login, você será direcionado ao painel de controle.
+          </p>
+        )}
       </div>
     </div>
   );

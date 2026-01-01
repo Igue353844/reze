@@ -4,6 +4,13 @@ import { Search, Menu, X, Upload, Film, LogIn, LogOut, User } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -98,26 +105,39 @@ export function Navbar() {
               </Button>
             )}
 
-            {/* Auth / Admin */}
+            {/* Auth / User Menu */}
             {user ? (
-              <>
-                {isAdmin && (
-                  <Link to="/admin">
-                    <Button variant="secondary" size="sm" className="hidden sm:flex gap-2">
-                      <Upload className="w-4 h-4" />
-                      <span className="hidden lg:inline">Upload</span>
-                    </Button>
-                  </Link>
-                )}
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={handleSignOut}
-                  title="Sair"
-                >
-                  <LogOut className="w-5 h-5" />
-                </Button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="sm" className="gap-2">
+                    <User className="w-4 h-4" />
+                    <span className="hidden sm:inline max-w-24 truncate">
+                      {user.email?.split('@')[0]}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    {user.email}
+                  </div>
+                  <DropdownMenuSeparator />
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin" className="cursor-pointer">
+                          <Upload className="w-4 h-4 mr-2" />
+                          Painel Admin
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Link to="/auth">
                 <Button variant="secondary" size="sm" className="gap-2">
@@ -177,7 +197,7 @@ export function Navbar() {
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <Upload className="w-4 h-4 inline mr-2" />
-                Upload
+                Painel Admin
               </Link>
             )}
             {!user && (
