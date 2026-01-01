@@ -14,7 +14,8 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronUp,
-  Tv
+  Tv,
+  Radio
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -36,10 +37,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useVideos, useCategories, useCreateVideo, useDeleteVideo } from '@/hooks/useVideos';
 import { useUpload } from '@/hooks/useUpload';
@@ -47,6 +49,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { ContentType, Video as VideoType } from '@/types/video';
 import { SeriesManager } from '@/components/SeriesManager';
+import { ChannelManager } from '@/components/ChannelManager';
 
 // Video list item component with series management
 function VideoListItem({ 
@@ -358,7 +361,19 @@ const Admin = () => {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <Tabs defaultValue="videos" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="videos" className="gap-2">
+              <Film className="w-4 h-4" />
+              Vídeos
+            </TabsTrigger>
+            <TabsTrigger value="tv" className="gap-2">
+              <Radio className="w-4 h-4" />
+              TV ao Vivo
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="videos">
           {/* Upload Form */}
           <Card className="bg-card border-border">
             <CardHeader>
@@ -633,7 +648,26 @@ const Admin = () => {
               )}
             </CardContent>
           </Card>
-        </div>
+          </TabsContent>
+
+          {/* TV ao Vivo Tab */}
+          <TabsContent value="tv">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Radio className="w-5 h-5 text-primary" />
+                  Canais de TV ao Vivo
+                </CardTitle>
+                <CardDescription>
+                  Gerencie os canais de TV com streaming m3u8
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChannelManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
