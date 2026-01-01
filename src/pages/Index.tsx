@@ -1,13 +1,18 @@
+import { Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { HeroBanner } from '@/components/HeroBanner';
 import { VideoCarousel } from '@/components/VideoCarousel';
 import { useVideos, useFeaturedVideos, useCategories } from '@/hooks/useVideos';
+import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Play, LogIn } from 'lucide-react';
 
 const Index = () => {
   const { data: videos, isLoading: videosLoading } = useVideos();
   const { data: featuredVideos, isLoading: featuredLoading } = useFeaturedVideos();
   const { data: categories } = useCategories();
+  const { user } = useAuth();
 
   const getFeaturedOrLatest = () => {
     if (featuredVideos && featuredVideos.length > 0) {
@@ -60,8 +65,39 @@ const Index = () => {
       {/* Hero Banner */}
       <HeroBanner videos={getFeaturedOrLatest()} />
 
+      {/* CTA for non-logged users */}
+      {!user && (
+        <div className="container mx-auto px-4 -mt-16 relative z-10 mb-8">
+          <div className="bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 rounded-xl p-6 lg:p-8 border border-primary/20 backdrop-blur-sm">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+              <div>
+                <h2 className="font-display text-2xl lg:text-3xl text-foreground mb-2">
+                  ASSISTA AGORA
+                </h2>
+                <p className="text-muted-foreground">
+                  Crie sua conta grátis e tenha acesso ao catálogo completo de filmes e séries.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Link to="/auth">
+                  <Button size="lg" className="gap-2">
+                    <LogIn className="w-5 h-5" />
+                    Criar Conta
+                  </Button>
+                </Link>
+                <Link to="/auth">
+                  <Button size="lg" variant="secondary" className="gap-2">
+                    Já tenho conta
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content Carousels */}
-      <div className="container mx-auto lg:px-8 -mt-20 relative z-10 space-y-2">
+      <div className="container mx-auto lg:px-8 relative z-10 space-y-2" style={{ marginTop: user ? '-5rem' : '0' }}>
         {/* Recent Additions */}
         <VideoCarousel 
           title="Adicionados Recentemente" 
