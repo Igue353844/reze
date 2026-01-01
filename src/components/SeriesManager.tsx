@@ -158,11 +158,21 @@ export function SeriesManager({ video }: SeriesManagerProps) {
       if (episodePosterFile) {
         toast.info('Enviando capa do episódio...');
         poster_url = await uploadPoster(episodePosterFile) || undefined;
+        if (!poster_url && episodePosterFile) {
+          toast.error('Erro ao enviar capa do episódio');
+          setIsSubmittingEpisode(false);
+          return;
+        }
       }
 
       if (episodeVideoFile) {
         toast.info('Enviando vídeo do episódio...');
         video_url = await uploadVideo(episodeVideoFile) || undefined;
+        if (!video_url) {
+          toast.error('Erro ao enviar vídeo. O episódio não será salvo.');
+          setIsSubmittingEpisode(false);
+          return;
+        }
       }
 
       await createEpisode.mutateAsync({
