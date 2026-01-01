@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Play, 
   Pause, 
@@ -8,7 +8,9 @@ import {
   Minimize,
   SkipBack,
   SkipForward,
-  Settings
+  Settings,
+  Sun,
+  Gauge
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -18,6 +20,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 
 export type VideoQuality = '144p' | '240p' | '480p' | '720p' | '1080p' | '2K' | '4K' | 'auto';
@@ -34,6 +38,8 @@ interface VideoPlayerProps {
   qualities?: QualityOption[];
 }
 
+const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
 export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -47,7 +53,16 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
   const [isLoading, setIsLoading] = useState(true);
   const [currentQuality, setCurrentQuality] = useState<VideoQuality>('auto');
   const [currentSrc, setCurrentSrc] = useState(src);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [brightness, setBrightness] = useState(100);
+  const [showGestureIndicator, setShowGestureIndicator] = useState<{ type: 'seek' | 'brightness' | 'volume'; value: number } | null>(null);
   const controlsTimeout = useRef<NodeJS.Timeout>();
+  const gestureTimeout = useRef<NodeJS.Timeout>();
+
+  // Touch gesture state
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const initialValuesRef = useRef<{ currentTime: number; brightness: number; volume: number }>({ currentTime: 0, brightness: 100, volume: 1 });
+  const gestureTypeRef = useRef<'seek' | 'brightness' | 'volume' | null>(null);
 
   // Default quality options if not provided
   const defaultQualities: QualityOption[] = [
@@ -92,6 +107,13 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
       video.removeEventListener('canplay', handleCanPlay);
     };
   }, [currentSrc]);
+
+  // Apply playback speed
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = playbackSpeed;
+    }
+  }, [playbackSpeed]);
 
   const handleMouseMove = () => {
     setShowControls(true);
@@ -173,6 +195,122 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
     }, 100);
   };
 
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+  };
+
+  const handleBrightnessChange = (value: number[]) => {
+    setBrightness(value[0]);
+  };
+
+  // Touch gesture handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+    initialValuesRef.current = { 
+      currentTime: videoRef.current?.currentTime || 0, 
+      brightness, 
+      volume 
+    };
+    gestureTypeRef.current = null;
+    setShowControls(true);
+  }, [brightness, volume]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current || !containerRef.current) return;
+
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    // Determine gesture type if not set
+    if (!gestureTypeRef.current) {
+      if (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20) {
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          gestureTypeRef.current = 'seek';
+        } else {
+          // Left side = brightness, right side = volume
+          gestureTypeRef.current = touch.clientX < containerWidth / 2 ? 'brightness' : 'volume';
+        }
+      }
+    }
+
+    if (!gestureTypeRef.current) return;
+
+    clearTimeout(gestureTimeout.current);
+
+    if (gestureTypeRef.current === 'seek') {
+      // Seek: horizontal swipe
+      const seekAmount = (deltaX / containerWidth) * duration * 0.5;
+      const newTime = Math.max(0, Math.min(duration, initialValuesRef.current.currentTime + seekAmount));
+      if (videoRef.current) {
+        videoRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+      }
+      setShowGestureIndicator({ type: 'seek', value: Math.round(seekAmount) });
+    } else if (gestureTypeRef.current === 'brightness') {
+      // Brightness: vertical swipe on left side
+      const brightnessChange = -(deltaY / containerHeight) * 100;
+      const newBrightness = Math.max(20, Math.min(150, initialValuesRef.current.brightness + brightnessChange));
+      setBrightness(newBrightness);
+      setShowGestureIndicator({ type: 'brightness', value: Math.round(newBrightness) });
+    } else if (gestureTypeRef.current === 'volume') {
+      // Volume: vertical swipe on right side
+      const volumeChange = -(deltaY / containerHeight);
+      const newVolume = Math.max(0, Math.min(1, initialValuesRef.current.volume + volumeChange));
+      if (videoRef.current) {
+        videoRef.current.volume = newVolume;
+        setVolume(newVolume);
+        setIsMuted(newVolume === 0);
+      }
+      setShowGestureIndicator({ type: 'volume', value: Math.round(newVolume * 100) });
+    }
+  }, [duration]);
+
+  const handleTouchEnd = useCallback(() => {
+    const touchStart = touchStartRef.current;
+    touchStartRef.current = null;
+    gestureTypeRef.current = null;
+
+    // Hide gesture indicator after a delay
+    gestureTimeout.current = setTimeout(() => {
+      setShowGestureIndicator(null);
+    }, 500);
+
+    // Handle tap to toggle play
+    if (touchStart && Date.now() - touchStart.time < 200) {
+      // Quick tap - toggle play only if not a gesture
+      if (!showGestureIndicator) {
+        togglePlay();
+      }
+    }
+
+    // Auto-hide controls
+    clearTimeout(controlsTimeout.current);
+    controlsTimeout.current = setTimeout(() => {
+      if (isPlaying) setShowControls(false);
+    }, 3000);
+  }, [isPlaying, showGestureIndicator]);
+
+  // Double tap to seek
+  const lastTapRef = useRef<{ time: number; x: number } | null>(null);
+  const handleDoubleTap = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const now = Date.now();
+    const containerWidth = containerRef.current?.clientWidth || 0;
+
+    if (lastTapRef.current && now - lastTapRef.current.time < 300) {
+      // Double tap detected
+      const isRightSide = touch.clientX > containerWidth / 2;
+      skip(isRightSide ? 10 : -10);
+      lastTapRef.current = null;
+    } else {
+      lastTapRef.current = { time: now, x: touch.clientX };
+    }
+  }, []);
+
   const formatTime = (time: number) => {
     const hours = Math.floor(time / 3600);
     const minutes = Math.floor((time % 3600) / 60);
@@ -189,7 +327,9 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
       ref={containerRef}
       className="relative w-full aspect-video bg-black rounded-lg overflow-hidden group"
       onMouseMove={handleMouseMove}
-      onTouchStart={() => setShowControls(true)}
+      onTouchStart={(e) => { handleTouchStart(e); handleDoubleTap(e); }}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
       <video
@@ -197,9 +337,34 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
         src={currentSrc}
         poster={poster}
         className="w-full h-full object-contain"
+        style={{ filter: `brightness(${brightness}%)` }}
         onClick={togglePlay}
         playsInline
       />
+
+      {/* Gesture Indicator */}
+      {showGestureIndicator && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/70 px-4 py-2 rounded-lg flex items-center gap-2 text-white">
+          {showGestureIndicator.type === 'seek' && (
+            <>
+              {showGestureIndicator.value >= 0 ? <SkipForward className="w-5 h-5" /> : <SkipBack className="w-5 h-5" />}
+              <span className="font-medium">{showGestureIndicator.value >= 0 ? '+' : ''}{showGestureIndicator.value}s</span>
+            </>
+          )}
+          {showGestureIndicator.type === 'brightness' && (
+            <>
+              <Sun className="w-5 h-5" />
+              <span className="font-medium">{showGestureIndicator.value}%</span>
+            </>
+          )}
+          {showGestureIndicator.type === 'volume' && (
+            <>
+              <Volume2 className="w-5 h-5" />
+              <span className="font-medium">{showGestureIndicator.value}%</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Loading Spinner */}
       {isLoading && (
@@ -303,33 +468,75 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
               )}
             </Button>
 
-            {/* Quality Selector */}
-            {availableQualities.length > 1 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
-                    <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  align="end" 
-                  className="bg-popover border border-border z-50 min-w-[100px]"
-                >
-                  {availableQualities.map((quality) => (
-                    <DropdownMenuItem
-                      key={quality.label}
-                      onClick={() => handleQualityChange(quality)}
-                      className={cn(
-                        "cursor-pointer",
-                        currentQuality === quality.label && "bg-accent text-accent-foreground"
-                      )}
+            {/* Settings Menu (Quality, Speed, Brightness) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
+                  <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent 
+                align="end" 
+                className="bg-popover border border-border z-50 min-w-[180px]"
+              >
+                {/* Playback Speed */}
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <Gauge className="w-4 h-4" />
+                  Velocidade
+                </DropdownMenuLabel>
+                <div className="grid grid-cols-4 gap-1 px-2 pb-2">
+                  {PLAYBACK_SPEEDS.map((speed) => (
+                    <Button
+                      key={speed}
+                      variant={playbackSpeed === speed ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs px-1"
+                      onClick={() => handleSpeedChange(speed)}
                     >
-                      {quality.label}
-                    </DropdownMenuItem>
+                      {speed}x
+                    </Button>
                   ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                </div>
+
+                <DropdownMenuSeparator />
+
+                {/* Brightness */}
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <Sun className="w-4 h-4" />
+                  Brilho: {brightness}%
+                </DropdownMenuLabel>
+                <div className="px-2 pb-2">
+                  <Slider
+                    value={[brightness]}
+                    min={20}
+                    max={150}
+                    step={5}
+                    onValueChange={handleBrightnessChange}
+                    className="cursor-pointer"
+                  />
+                </div>
+
+                {/* Quality Options */}
+                {availableQualities.length > 1 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Qualidade</DropdownMenuLabel>
+                    {availableQualities.map((quality) => (
+                      <DropdownMenuItem
+                        key={quality.label}
+                        onClick={() => handleQualityChange(quality)}
+                        className={cn(
+                          "cursor-pointer",
+                          currentQuality === quality.label && "bg-accent text-accent-foreground"
+                        )}
+                      >
+                        {quality.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Fullscreen - Always visible */}
             <Button 
@@ -347,6 +554,13 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
           </div>
         </div>
       </div>
+
+      {/* Speed indicator when not 1x */}
+      {playbackSpeed !== 1 && (
+        <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded text-xs text-white font-medium">
+          {playbackSpeed}x
+        </div>
+      )}
     </div>
   );
 }
