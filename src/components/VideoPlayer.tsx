@@ -189,6 +189,7 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
       ref={containerRef}
       className="relative w-full aspect-video bg-black rounded-lg overflow-hidden group"
       onMouseMove={handleMouseMove}
+      onTouchStart={() => setShowControls(true)}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
       <video
@@ -213,8 +214,8 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
           onClick={togglePlay}
           className="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity"
         >
-          <div className="w-20 h-20 rounded-full bg-primary/90 flex items-center justify-center hover:bg-primary transition-colors">
-            <Play className="w-10 h-10 text-primary-foreground fill-current ml-1" />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/90 flex items-center justify-center hover:bg-primary transition-colors">
+            <Play className="w-8 h-8 sm:w-10 sm:h-10 text-primary-foreground fill-current ml-1" />
           </div>
         </button>
       )}
@@ -222,19 +223,19 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
       {/* Controls */}
       <div
         className={cn(
-          "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 transition-opacity duration-300",
-          showControls ? "opacity-100" : "opacity-0"
+          "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-2 sm:p-4 transition-opacity duration-300",
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
         {/* Title */}
         {title && (
-          <div className="mb-4">
-            <h3 className="text-foreground font-semibold text-lg">{title}</h3>
+          <div className="mb-2 sm:mb-4">
+            <h3 className="text-foreground font-semibold text-sm sm:text-lg truncate">{title}</h3>
           </div>
         )}
 
         {/* Progress Bar */}
-        <div className="mb-4">
+        <div className="mb-2 sm:mb-4">
           <Slider
             value={[currentTime]}
             max={duration || 100}
@@ -244,31 +245,32 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
           />
         </div>
 
-        {/* Controls Row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        {/* Controls Row - Mobile Optimized */}
+        <div className="flex items-center justify-between gap-1">
+          {/* Left Controls */}
+          <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
             {/* Play/Pause */}
-            <Button variant="ghost" size="icon" onClick={togglePlay}>
+            <Button variant="ghost" size="icon" onClick={togglePlay} className="h-8 w-8 sm:h-10 sm:w-10">
               {isPlaying ? (
-                <Pause className="w-6 h-6 fill-current" />
+                <Pause className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
               ) : (
-                <Play className="w-6 h-6 fill-current" />
+                <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
               )}
             </Button>
 
-            {/* Skip Backward */}
-            <Button variant="ghost" size="icon" onClick={() => skip(-10)}>
-              <SkipBack className="w-5 h-5" />
+            {/* Skip Backward - Hidden on very small screens */}
+            <Button variant="ghost" size="icon" onClick={() => skip(-10)} className="h-8 w-8 sm:h-10 sm:w-10 hidden xs:flex">
+              <SkipBack className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
 
-            {/* Skip Forward */}
-            <Button variant="ghost" size="icon" onClick={() => skip(10)}>
-              <SkipForward className="w-5 h-5" />
+            {/* Skip Forward - Hidden on very small screens */}
+            <Button variant="ghost" size="icon" onClick={() => skip(10)} className="h-8 w-8 sm:h-10 sm:w-10 hidden xs:flex">
+              <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
 
-            {/* Volume */}
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={toggleMute}>
+            {/* Volume - Hidden on mobile, show on larger screens */}
+            <div className="hidden sm:flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={toggleMute} className="h-10 w-10">
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-5 h-5" />
                 ) : (
@@ -280,24 +282,33 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
                 max={1}
                 step={0.1}
                 onValueChange={handleVolumeChange}
-                className="w-24 cursor-pointer"
+                className="w-20 cursor-pointer"
               />
             </div>
-
-            {/* Time */}
-            <span className="text-sm text-muted-foreground ml-2">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Center - Time Display */}
+          <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap px-1">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+
+          {/* Right Controls */}
+          <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
+            {/* Volume Toggle - Mobile only */}
+            <Button variant="ghost" size="icon" onClick={toggleMute} className="h-8 w-8 sm:hidden">
+              {isMuted || volume === 0 ? (
+                <VolumeX className="w-4 h-4" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
+            </Button>
+
             {/* Quality Selector */}
-            {availableQualities.length > 0 && (
+            {availableQualities.length > 1 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-1 text-foreground">
-                    <Settings className="w-4 h-4" />
-                    <span className="text-xs">{currentQuality}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
+                    <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent 
@@ -320,12 +331,17 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
               </DropdownMenu>
             )}
 
-            {/* Fullscreen */}
-            <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
+            {/* Fullscreen - Always visible */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={toggleFullscreen}
+              className="h-8 w-8 sm:h-10 sm:w-10"
+            >
               {isFullscreen ? (
-                <Minimize className="w-5 h-5" />
+                <Minimize className="w-5 h-5 sm:w-6 sm:h-6" />
               ) : (
-                <Maximize className="w-5 h-5" />
+                <Maximize className="w-5 h-5 sm:w-6 sm:h-6" />
               )}
             </Button>
           </div>
