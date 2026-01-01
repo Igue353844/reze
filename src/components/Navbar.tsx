@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Upload, Film, LogIn, LogOut, User } from 'lucide-react';
+import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,10 +72,17 @@ export function Navbar() {
             >
               Séries
             </Link>
+            <Link 
+              to="/tv" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              <Radio className="w-3 h-3" />
+              TV ao Vivo
+            </Link>
           </div>
 
           {/* Right Side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Search */}
             {isSearchOpen ? (
               <form onSubmit={handleSearch} className="flex items-center gap-2">
@@ -104,6 +112,9 @@ export function Navbar() {
                 <Search className="w-5 h-5" />
               </Button>
             )}
+
+            {/* Theme Toggle */}
+            <ThemeToggle />
 
             {/* Auth / User Menu */}
             {user ? (
@@ -189,6 +200,14 @@ export function Navbar() {
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Séries
+            </Link>
+            <Link 
+              to="/tv" 
+              className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <Radio className="w-4 h-4 inline mr-2" />
+              TV ao Vivo
             </Link>
             {user && isAdmin && (
               <Link 
