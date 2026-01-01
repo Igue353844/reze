@@ -15,7 +15,8 @@ import {
   ChevronDown,
   ChevronUp,
   Tv,
-  Radio
+  Radio,
+  Minimize2
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ import { Switch } from '@/components/ui/switch';
 import { useVideos, useCategories, useCreateVideo, useDeleteVideo } from '@/hooks/useVideos';
 import { useUpload } from '@/hooks/useUpload';
 import { UploadProgressBar } from '@/components/UploadProgressBar';
+import { VideoCompressionDialog } from '@/components/VideoCompressionDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { ContentType, Video as VideoType } from '@/types/video';
@@ -155,6 +157,8 @@ const Admin = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCompressionDialog, setShowCompressionDialog] = useState(false);
+  const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -187,7 +191,26 @@ const Admin = () => {
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setVideoFile(file);
+      // Show compression dialog for videos larger than 50MB
+      if (file.size > 50 * 1024 * 1024) {
+        setPendingVideoFile(file);
+        setShowCompressionDialog(true);
+      } else {
+        setVideoFile(file);
+      }
+    }
+  };
+
+  const handleCompressionComplete = (compressedFile: File) => {
+    setVideoFile(compressedFile);
+    setPendingVideoFile(null);
+    toast.success('Vídeo comprimido com sucesso!');
+  };
+
+  const handleCompressionSkip = () => {
+    if (pendingVideoFile) {
+      setVideoFile(pendingVideoFile);
+      setPendingVideoFile(null);
     }
   };
 
@@ -531,8 +554,23 @@ const Admin = () => {
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {(videoFile.size / 1024 / 1024).toFixed(2)} MB
+                            {videoFile.name.includes('_compressed') && (
+                              <span className="text-green-500 ml-2">✓ Comprimido</span>
+                            )}
                           </p>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          title="Comprimir vídeo"
+                          onClick={() => {
+                            setPendingVideoFile(videoFile);
+                            setShowCompressionDialog(true);
+                          }}
+                        >
+                          <Minimize2 className="w-4 h-4" />
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
@@ -665,6 +703,15 @@ const Admin = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Video Compression Dialog */}
+        <VideoCompressionDialog
+          open={showCompressionDialog}
+          onOpenChange={setShowCompressionDialog}
+          file={pendingVideoFile}
+          onCompressionComplete={handleCompressionComplete}
+          onSkip={handleCompressionSkip}
+        />
       </div>
     </Layout>
   );
