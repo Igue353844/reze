@@ -21,6 +21,9 @@ const SUPPORTED_VIDEO_TYPES = [
   'video/mpeg',
   'video/3gpp',
   'video/x-m4v',
+  'video/x-matroska', // MKV
+  'video/x-flv',
+  'video/avi',
 ];
 
 const SUPPORTED_IMAGE_TYPES = [
@@ -201,7 +204,7 @@ export function useUpload() {
       if (bucket === 'videos' && !SUPPORTED_VIDEO_TYPES.includes(file.type)) {
         const ext = file.name.split('.').pop()?.toLowerCase();
         throw new Error(
-          `Formato "${ext}" não suportado. Use: MP4, WebM, OGG, MOV, AVI, MPEG, 3GP, M4V`
+          `Formato "${ext}" não suportado. Use: MP4, WebM, OGG, MOV, AVI, MKV, MPEG, 3GP, M4V, FLV`
         );
       }
 
