@@ -445,7 +445,7 @@ const Admin = () => {
                           Clique para enviar vídeo
                         </span>
                         <span className="text-xs text-muted-foreground mt-1">
-                          MP4, WebM, OGG (máx. 500MB)
+                          MP4, WebM, OGG (máx. 1GB)
                         </span>
                         <input
                           type="file"
