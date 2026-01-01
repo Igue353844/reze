@@ -34,6 +34,10 @@ export function Navbar() {
     navigate('/');
   };
 
+  const handleNavigateToAdmin = () => {
+    navigate('/admin');
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-background via-background/95 to-transparent">
       <div className="container mx-auto px-4">
@@ -134,11 +138,9 @@ export function Navbar() {
                   <DropdownMenuSeparator />
                   {isAdmin && (
                     <>
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin" className="cursor-pointer">
-                          <Upload className="w-4 h-4 mr-2" />
-                          Painel Admin
-                        </Link>
+                      <DropdownMenuItem onClick={handleNavigateToAdmin} className="cursor-pointer">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Painel Admin
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                     </>

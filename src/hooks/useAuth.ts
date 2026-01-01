@@ -85,13 +85,20 @@ export function useAuth() {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (!error) {
-      setUser(null);
-      setSession(null);
-      setIsAdmin(false);
+    // Always clear local state first to ensure user is logged out on client
+    setUser(null);
+    setSession(null);
+    setIsAdmin(false);
+    
+    // Then attempt server logout (may fail if session already expired)
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      // Ignore errors - we've already cleared local state
+      console.log('Logout completed (session may have been expired)');
     }
-    return { error };
+    
+    return { error: null };
   };
 
   return {
