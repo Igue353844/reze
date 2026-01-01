@@ -7,19 +7,34 @@ import {
   Maximize, 
   Minimize,
   SkipBack,
-  SkipForward
+  SkipForward,
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+export type VideoQuality = '144p' | '240p' | '480p' | '720p' | '1080p' | '2K' | '4K' | 'auto';
+
+export interface QualityOption {
+  label: VideoQuality;
+  src: string;
+}
 
 interface VideoPlayerProps {
   src: string;
   poster?: string;
   title?: string;
+  qualities?: QualityOption[];
 }
 
-export function VideoPlayer({ src, poster, title }: VideoPlayerProps) {
+export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -30,7 +45,22 @@ export function VideoPlayer({ src, poster, title }: VideoPlayerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentQuality, setCurrentQuality] = useState<VideoQuality>('auto');
+  const [currentSrc, setCurrentSrc] = useState(src);
   const controlsTimeout = useRef<NodeJS.Timeout>();
+
+  // Default quality options if not provided
+  const defaultQualities: QualityOption[] = [
+    { label: 'auto', src: src }
+  ];
+
+  const availableQualities = qualities && qualities.length > 0 ? qualities : defaultQualities;
+
+  // Update source when prop changes
+  useEffect(() => {
+    setCurrentSrc(src);
+    setCurrentQuality('auto');
+  }, [src]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -61,7 +91,7 @@ export function VideoPlayer({ src, poster, title }: VideoPlayerProps) {
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('canplay', handleCanPlay);
     };
-  }, []);
+  }, [currentSrc]);
 
   const handleMouseMove = () => {
     setShowControls(true);
@@ -122,6 +152,27 @@ export function VideoPlayer({ src, poster, title }: VideoPlayerProps) {
     }
   };
 
+  const handleQualityChange = (quality: QualityOption) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const wasPlaying = !video.paused;
+    const currentTimePos = video.currentTime;
+
+    setCurrentQuality(quality.label);
+    setCurrentSrc(quality.src);
+
+    // Wait for the new source to load, then restore position and play state
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = currentTimePos;
+        if (wasPlaying) {
+          videoRef.current.play();
+        }
+      }
+    }, 100);
+  };
+
   const formatTime = (time: number) => {
     const hours = Math.floor(time / 3600);
     const minutes = Math.floor((time % 3600) / 60);
@@ -142,7 +193,7 @@ export function VideoPlayer({ src, poster, title }: VideoPlayerProps) {
     >
       <video
         ref={videoRef}
-        src={src}
+        src={currentSrc}
         poster={poster}
         className="w-full h-full object-contain"
         onClick={togglePlay}
@@ -239,14 +290,45 @@ export function VideoPlayer({ src, poster, title }: VideoPlayerProps) {
             </span>
           </div>
 
-          {/* Fullscreen */}
-          <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
-            {isFullscreen ? (
-              <Minimize className="w-5 h-5" />
-            ) : (
-              <Maximize className="w-5 h-5" />
+          <div className="flex items-center gap-2">
+            {/* Quality Selector */}
+            {availableQualities.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-1 text-foreground">
+                    <Settings className="w-4 h-4" />
+                    <span className="text-xs">{currentQuality}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="end" 
+                  className="bg-popover border border-border z-50 min-w-[100px]"
+                >
+                  {availableQualities.map((quality) => (
+                    <DropdownMenuItem
+                      key={quality.label}
+                      onClick={() => handleQualityChange(quality)}
+                      className={cn(
+                        "cursor-pointer",
+                        currentQuality === quality.label && "bg-accent text-accent-foreground"
+                      )}
+                    >
+                      {quality.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-          </Button>
+
+            {/* Fullscreen */}
+            <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
+              {isFullscreen ? (
+                <Minimize className="w-5 h-5" />
+              ) : (
+                <Maximize className="w-5 h-5" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
