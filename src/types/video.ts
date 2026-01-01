@@ -28,3 +28,28 @@ export interface Video {
 export interface VideoWithCategory extends Video {
   categories: Category | null;
 }
+
+export interface Season {
+  id: string;
+  video_id: string;
+  season_number: number;
+  title: string | null;
+  poster_url: string | null;
+  created_at: string;
+}
+
+export interface Episode {
+  id: string;
+  season_id: string;
+  episode_number: number;
+  title: string;
+  description: string | null;
+  duration_minutes: number | null;
+  poster_url: string | null;
+  video_url: string | null;
+  created_at: string;
+}
+
+export interface SeasonWithEpisodes extends Season {
+  episodes: Episode[];
+}

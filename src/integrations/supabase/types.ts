@@ -35,6 +35,85 @@ export type Database = {
         }
         Relationships: []
       }
+      episodes: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          episode_number: number
+          id: string
+          poster_url: string | null
+          season_id: string
+          title: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          episode_number: number
+          id?: string
+          poster_url?: string | null
+          season_id: string
+          title: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          episode_number?: number
+          id?: string
+          poster_url?: string | null
+          season_id?: string
+          title?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episodes_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seasons: {
+        Row: {
+          created_at: string
+          id: string
+          poster_url: string | null
+          season_number: number
+          title: string | null
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          poster_url?: string | null
+          season_number: number
+          title?: string | null
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          poster_url?: string | null
+          season_number?: number
+          title?: string | null
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seasons_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
