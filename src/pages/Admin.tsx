@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Loader2,
   Image as ImageIcon,
+  Users,
   Video,
   LogOut,
   ShieldAlert
@@ -255,10 +256,18 @@ const Admin = () => {
               <p className="text-muted-foreground">Logado como: {user.email}</p>
             </div>
           </div>
-          <Button variant="outline" onClick={handleSignOut} className="gap-2">
-            <LogOut className="w-4 h-4" />
-            Sair
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link to="/admin/users">
+              <Button variant="secondary" className="gap-2">
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">Gerenciar Admins</span>
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={handleSignOut} className="gap-2">
+              <LogOut className="w-4 h-4" />
+              Sair
+            </Button>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">

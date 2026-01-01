@@ -8,6 +8,7 @@ import Catalog from "./pages/Catalog";
 import Watch from "./pages/Watch";
 import Embed from "./pages/Embed";
 import Admin from "./pages/Admin";
+import AdminManagement from "./pages/AdminManagement";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/watch/:slug" element={<Watch />} />
           <Route path="/embed/:slug" element={<Embed />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/users" element={<AdminManagement />} />
           <Route path="/auth" element={<Auth />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
