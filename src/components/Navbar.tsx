@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Upload, Film } from 'lucide-react';
+import { Search, Menu, X, Upload, Film, LogIn, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/useAuth';
 
 export function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+  const { user, isAdmin, signOut } = useAuth();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,6 +19,11 @@ export function Navbar() {
       setIsSearchOpen(false);
       setSearchQuery('');
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
   };
 
   return (
@@ -91,13 +98,34 @@ export function Navbar() {
               </Button>
             )}
 
-            {/* Admin Upload Button */}
-            <Link to="/admin">
-              <Button variant="secondary" size="sm" className="hidden sm:flex gap-2">
-                <Upload className="w-4 h-4" />
-                <span className="hidden lg:inline">Upload</span>
-              </Button>
-            </Link>
+            {/* Auth / Admin */}
+            {user ? (
+              <>
+                {isAdmin && (
+                  <Link to="/admin">
+                    <Button variant="secondary" size="sm" className="hidden sm:flex gap-2">
+                      <Upload className="w-4 h-4" />
+                      <span className="hidden lg:inline">Upload</span>
+                    </Button>
+                  </Link>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleSignOut}
+                  title="Sair"
+                >
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </>
+            ) : (
+              <Link to="/auth">
+                <Button variant="secondary" size="sm" className="gap-2">
+                  <LogIn className="w-4 h-4" />
+                  <span className="hidden sm:inline">Entrar</span>
+                </Button>
+              </Link>
+            )}
 
             {/* Mobile Menu Toggle */}
             <Button 
@@ -142,14 +170,26 @@ export function Navbar() {
             >
               Séries
             </Link>
-            <Link 
-              to="/admin" 
-              className="block px-4 py-2 text-primary hover:bg-secondary rounded-lg transition-colors"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <Upload className="w-4 h-4 inline mr-2" />
-              Upload
-            </Link>
+            {user && isAdmin && (
+              <Link 
+                to="/admin" 
+                className="block px-4 py-2 text-primary hover:bg-secondary rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Upload className="w-4 h-4 inline mr-2" />
+                Upload
+              </Link>
+            )}
+            {!user && (
+              <Link 
+                to="/auth" 
+                className="block px-4 py-2 text-primary hover:bg-secondary rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <LogIn className="w-4 h-4 inline mr-2" />
+                Entrar
+              </Link>
+            )}
           </div>
         )}
       </div>
