@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Upload, 
   Film, 
@@ -8,7 +8,9 @@ import {
   ArrowLeft,
   Loader2,
   Image as ImageIcon,
-  Video
+  Video,
+  LogOut,
+  ShieldAlert
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -32,10 +34,14 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useVideos, useCategories, useCreateVideo, useDeleteVideo } from '@/hooks/useVideos';
 import { useUpload } from '@/hooks/useUpload';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { ContentType } from '@/types/video';
 
 const Admin = () => {
+  const navigate = useNavigate();
+  const { user, isLoading: authLoading, isAdmin, signOut } = useAuth();
+  
   const { data: videos, isLoading: videosLoading } = useVideos();
   const { data: categories } = useCategories();
   const createVideo = useCreateVideo();
@@ -56,6 +62,13 @@ const Admin = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
 
   const generateSlug = (title: string) => {
     return title
@@ -90,6 +103,11 @@ const Admin = () => {
     
     if (!formData.title) {
       toast.error('O título é obrigatório');
+      return;
+    }
+
+    if (!isAdmin) {
+      toast.error('Você não tem permissão para adicionar vídeos');
       return;
     }
 
@@ -128,7 +146,7 @@ const Admin = () => {
         category_id: formData.category_id || undefined,
         is_featured: formData.is_featured,
         poster_url,
-        banner_url: poster_url, // Use poster as banner too
+        banner_url: poster_url,
         video_url,
       });
 
@@ -150,37 +168,97 @@ const Admin = () => {
 
     } catch (error) {
       console.error('Error creating video:', error);
-      toast.error('Erro ao adicionar vídeo');
+      toast.error('Erro ao adicionar vídeo. Verifique suas permissões.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string, title: string) => {
+    if (!isAdmin) {
+      toast.error('Você não tem permissão para excluir vídeos');
+      return;
+    }
+
     if (confirm(`Tem certeza que deseja excluir "${title}"?`)) {
       try {
         await deleteVideo.mutateAsync(id);
         toast.success('Vídeo excluído');
       } catch (error) {
-        toast.error('Erro ao excluir vídeo');
+        toast.error('Erro ao excluir vídeo. Verifique suas permissões.');
       }
     }
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  // Show access denied if not admin
+  if (!isAdmin) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-16 text-center">
+          <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-6" />
+          <h1 className="font-display text-4xl text-foreground mb-4">ACESSO RESTRITO</h1>
+          <p className="text-muted-foreground mb-2">
+            Você está logado como: <span className="text-foreground">{user.email}</span>
+          </p>
+          <p className="text-muted-foreground mb-8">
+            Sua conta não possui permissão de administrador para gerenciar vídeos.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Link to="/">
+              <Button variant="secondary" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Voltar ao Início
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={handleSignOut} className="gap-2">
+              <LogOut className="w-4 h-4" />
+              Sair
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link to="/">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="font-display text-4xl text-foreground">PAINEL DE ADMIN</h1>
-            <p className="text-muted-foreground">Gerencie seus vídeos e conteúdos</p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="font-display text-4xl text-foreground">PAINEL DE ADMIN</h1>
+              <p className="text-muted-foreground">Logado como: {user.email}</p>
+            </div>
           </div>
+          <Button variant="outline" onClick={handleSignOut} className="gap-2">
+            <LogOut className="w-4 h-4" />
+            Sair
+          </Button>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
