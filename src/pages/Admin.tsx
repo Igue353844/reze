@@ -45,6 +45,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useVideos, useCategories, useCreateVideo, useDeleteVideo } from '@/hooks/useVideos';
 import { useUpload } from '@/hooks/useUpload';
+import { UploadProgressBar } from '@/components/UploadProgressBar';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { ContentType, Video as VideoType } from '@/types/video';
@@ -138,7 +139,7 @@ const Admin = () => {
   const { data: categories } = useCategories();
   const createVideo = useCreateVideo();
   const deleteVideo = useDeleteVideo();
-  const { uploadVideo, uploadPoster, isUploading, progress } = useUpload();
+  const { uploadVideo, uploadPoster, isUploading, progress, error: uploadError, cancelUpload } = useUpload();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -548,7 +549,7 @@ const Admin = () => {
                           Clique para enviar vídeo
                         </span>
                         <span className="text-xs text-muted-foreground mt-1">
-                          MP4, WebM, OGG (máx. 10GB)
+                          MP4, WebM, OGG, MOV, AVI (máx. 10GB)
                         </span>
                         <input
                           type="file"
@@ -576,18 +577,14 @@ const Admin = () => {
                 </div>
 
                 {/* Progress */}
-                {isUploading && progress && (
-                  <div className="space-y-2">
-                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{ width: `${progress.percentage}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-muted-foreground text-center">
-                      Enviando... {progress.percentage}%
-                    </p>
-                  </div>
+                {(isUploading || progress || uploadError) && (
+                  <UploadProgressBar
+                    progress={progress}
+                    isUploading={isUploading}
+                    error={uploadError}
+                    fileName={videoFile?.name || posterFile?.name}
+                    onCancel={cancelUpload}
+                  />
                 )}
 
                 {/* Submit */}
