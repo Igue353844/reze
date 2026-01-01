@@ -90,7 +90,7 @@ export function useUpload() {
         const upload = new tus.Upload(file, {
           endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
           retryDelays: [0, 1000, 3000, 5000, 10000],
-          chunkSize: 6 * 1024 * 1024, // 6MB chunks for faster upload
+          chunkSize: 50 * 1024 * 1024, // 50MB chunks for faster upload
           headers: {
             authorization: `Bearer ${session.access_token}`,
             apikey: supabaseKey,
