@@ -230,6 +230,57 @@ export type Database = {
           },
         ]
       }
+      watch_progress: {
+        Row: {
+          completed: boolean
+          created_at: string
+          duration_seconds: number
+          episode_id: string | null
+          id: string
+          last_watched_at: string
+          progress_seconds: number
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          duration_seconds?: number
+          episode_id?: string | null
+          id?: string
+          last_watched_at?: string
+          progress_seconds?: number
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          duration_seconds?: number
+          episode_id?: string | null
+          id?: string
+          last_watched_at?: string
+          progress_seconds?: number
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_progress_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "watch_progress_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

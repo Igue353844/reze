@@ -49,11 +49,15 @@ interface VideoPlayerProps {
   title?: string;
   qualities?: QualityOption[];
   subtitles?: SubtitleTrack[];
+  videoId?: string;
+  episodeId?: string | null;
+  initialProgress?: number;
+  onProgressUpdate?: (progressSeconds: number, durationSeconds: number) => void;
 }
 
 const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
-export function VideoPlayer({ src, poster, title, qualities, subtitles }: VideoPlayerProps) {
+export function VideoPlayer({ src, poster, title, qualities, subtitles, videoId, episodeId, initialProgress, onProgressUpdate }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -98,15 +102,37 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles }: VideoP
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTimeUpdate = () => setCurrentTime(video.currentTime);
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+      // Call progress update callback
+      if (onProgressUpdate && video.duration > 0) {
+        onProgressUpdate(video.currentTime, video.duration);
+      }
+    };
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
       setIsLoading(false);
+      // Set initial progress if provided
+      if (initialProgress && initialProgress > 0 && video.duration > 0) {
+        video.currentTime = Math.min(initialProgress, video.duration - 5);
+      }
     };
     const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    const handlePause = () => {
+      setIsPlaying(false);
+      // Save progress on pause
+      if (onProgressUpdate && video.duration > 0) {
+        onProgressUpdate(video.currentTime, video.duration);
+      }
+    };
     const handleWaiting = () => setIsLoading(true);
     const handleCanPlay = () => setIsLoading(false);
+    const handleEnded = () => {
+      // Save final progress when video ends
+      if (onProgressUpdate && video.duration > 0) {
+        onProgressUpdate(video.duration, video.duration);
+      }
+    };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -114,6 +140,7 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles }: VideoP
     video.addEventListener('pause', handlePause);
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('ended', handleEnded);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
@@ -122,8 +149,9 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles }: VideoP
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('ended', handleEnded);
     };
-  }, [currentSrc]);
+  }, [currentSrc, initialProgress, onProgressUpdate]);
 
   // Check PiP support
   useEffect(() => {

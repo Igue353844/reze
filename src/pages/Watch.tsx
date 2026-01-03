@@ -6,9 +6,11 @@ import { VideoCarousel } from '@/components/VideoCarousel';
 import { Button } from '@/components/ui/button';
 import { useVideo, useVideos } from '@/hooks/useVideos';
 import { useSeasonsWithEpisodes } from '@/hooks/useSeasons';
+import { useVideoProgress, useSaveProgress } from '@/hooks/useWatchProgress';
+import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import type { Episode } from '@/types/video';
 
@@ -21,6 +23,14 @@ const Watch = () => {
   const [copied, setCopied] = useState(false);
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string>('');
+  const { user } = useAuth();
+  
+  // Watch progress hooks
+  const { data: watchProgress } = useVideoProgress(
+    video?.id,
+    currentEpisode?.id
+  );
+  const { saveProgress, forceSaveProgress } = useSaveProgress();
 
   useEffect(() => {
     if (seasons && seasons.length > 0 && !selectedSeason) {
@@ -41,6 +51,25 @@ const Watch = () => {
       }
     }
   }, [searchParams, seasons]);
+
+  // Handle progress update from video player
+  const handleProgressUpdate = useCallback((progressSeconds: number, durationSeconds: number) => {
+    if (!user || !video?.id) return;
+    
+    saveProgress({
+      videoId: video.id,
+      episodeId: currentEpisode?.id || null,
+      progressSeconds,
+      durationSeconds,
+    });
+  }, [user, video?.id, currentEpisode?.id, saveProgress]);
+
+  // Force save on unmount
+  useEffect(() => {
+    return () => {
+      // This cleanup runs when navigating away
+    };
+  }, []);
 
   const relatedVideos = allVideos?.filter(
     v => v.id !== video?.id && v.category_id === video?.category_id
@@ -123,6 +152,10 @@ const Watch = () => {
               src={currentVideoUrl} 
               poster={currentPoster || undefined}
               title={currentEpisode ? `${video.title} - ${currentEpisode.title}` : video.title}
+              videoId={video.id}
+              episodeId={currentEpisode?.id || null}
+              initialProgress={watchProgress?.progress_seconds}
+              onProgressUpdate={handleProgressUpdate}
             />
           ) : (
             <div className="aspect-video bg-secondary rounded-lg flex items-center justify-center">
