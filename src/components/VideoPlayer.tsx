@@ -310,47 +310,68 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles }: VideoP
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
 
-    // Determine gesture type if not set
+    // Determine gesture type if not set (only once at the start)
     if (!gestureTypeRef.current) {
-      if (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20) {
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      
+      // Need a minimum threshold to determine gesture type
+      if (absX > 15 || absY > 15) {
+        // Determine based on which direction is dominant
+        if (absX > absY * 1.5) {
+          // Clearly horizontal - seek gesture
           gestureTypeRef.current = 'seek';
+        } else if (absY > absX * 1.5) {
+          // Clearly vertical - brightness or volume based on position
+          gestureTypeRef.current = touchStartRef.current.x < containerWidth / 2 ? 'brightness' : 'volume';
         } else {
-          // Left side = brightness, right side = volume
-          gestureTypeRef.current = touch.clientX < containerWidth / 2 ? 'brightness' : 'volume';
+          // Diagonal movement - decide based on starting position for vertical, otherwise horizontal
+          if (absY > absX) {
+            gestureTypeRef.current = touchStartRef.current.x < containerWidth / 2 ? 'brightness' : 'volume';
+          } else {
+            gestureTypeRef.current = 'seek';
+          }
         }
       }
     }
 
     if (!gestureTypeRef.current) return;
 
+    // Prevent default to stop scrolling
+    e.preventDefault();
+
     clearTimeout(gestureTimeout.current);
 
-    if (gestureTypeRef.current === 'seek') {
-      // Seek: horizontal swipe
-      const seekAmount = (deltaX / containerWidth) * duration * 0.5;
-      const newTime = Math.max(0, Math.min(duration, initialValuesRef.current.currentTime + seekAmount));
-      if (videoRef.current) {
-        videoRef.current.currentTime = newTime;
-        setCurrentTime(newTime);
+    // Handle each gesture type exclusively
+    switch (gestureTypeRef.current) {
+      case 'seek': {
+        const seekAmount = (deltaX / containerWidth) * duration * 0.5;
+        const newTime = Math.max(0, Math.min(duration, initialValuesRef.current.currentTime + seekAmount));
+        if (videoRef.current) {
+          videoRef.current.currentTime = newTime;
+          setCurrentTime(newTime);
+        }
+        setShowGestureIndicator({ type: 'seek', value: Math.round(seekAmount) });
+        break;
       }
-      setShowGestureIndicator({ type: 'seek', value: Math.round(seekAmount) });
-    } else if (gestureTypeRef.current === 'brightness') {
-      // Brightness: vertical swipe on left side
-      const brightnessChange = -(deltaY / containerHeight) * 100;
-      const newBrightness = Math.max(20, Math.min(150, initialValuesRef.current.brightness + brightnessChange));
-      setBrightness(newBrightness);
-      setShowGestureIndicator({ type: 'brightness', value: Math.round(newBrightness) });
-    } else if (gestureTypeRef.current === 'volume') {
-      // Volume: vertical swipe on right side
-      const volumeChange = -(deltaY / containerHeight);
-      const newVolume = Math.max(0, Math.min(1, initialValuesRef.current.volume + volumeChange));
-      if (videoRef.current) {
-        videoRef.current.volume = newVolume;
-        setVolume(newVolume);
-        setIsMuted(newVolume === 0);
+      case 'brightness': {
+        const brightnessChange = -(deltaY / containerHeight) * 100;
+        const newBrightness = Math.max(20, Math.min(150, initialValuesRef.current.brightness + brightnessChange));
+        setBrightness(newBrightness);
+        setShowGestureIndicator({ type: 'brightness', value: Math.round(newBrightness) });
+        break;
       }
-      setShowGestureIndicator({ type: 'volume', value: Math.round(newVolume * 100) });
+      case 'volume': {
+        const volumeChange = -(deltaY / containerHeight);
+        const newVolume = Math.max(0, Math.min(1, initialValuesRef.current.volume + volumeChange));
+        if (videoRef.current) {
+          videoRef.current.volume = newVolume;
+          setVolume(newVolume);
+          setIsMuted(newVolume === 0);
+        }
+        setShowGestureIndicator({ type: 'volume', value: Math.round(newVolume * 100) });
+        break;
+      }
     }
   }, [duration]);
 
