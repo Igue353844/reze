@@ -159,3 +159,83 @@ export function useDeleteVideo() {
     },
   });
 }
+
+interface UpdateVideoData {
+  id: string;
+  title?: string;
+  slug?: string;
+  description?: string;
+  type?: ContentType;
+  year?: number;
+  duration_minutes?: number;
+  poster_url?: string;
+  banner_url?: string;
+  video_url?: string;
+  is_featured?: boolean;
+  category_id?: string | null;
+}
+
+export function useUpdateVideo() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, ...data }: UpdateVideoData) => {
+      const { data: result, error } = await supabase
+        .from('videos')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['videos'] });
+      queryClient.invalidateQueries({ queryKey: ['video'] });
+    },
+  });
+}
+
+interface CreateCategoryData {
+  name: string;
+  slug: string;
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (category: CreateCategoryData) => {
+      const { data, error } = await supabase
+        .from('categories')
+        .insert(category)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}

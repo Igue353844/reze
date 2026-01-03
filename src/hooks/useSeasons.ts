@@ -148,6 +148,39 @@ export function useCreateEpisode() {
   });
 }
 
+interface UpdateEpisodeData {
+  id: string;
+  seasonId: string;
+  episode_number?: number;
+  title?: string;
+  description?: string;
+  duration_minutes?: number;
+  poster_url?: string;
+  video_url?: string;
+}
+
+export function useUpdateEpisode() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, seasonId, ...data }: UpdateEpisodeData) => {
+      const { data: result, error } = await supabase
+        .from('episodes')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return { result, seasonId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['episodes', data.seasonId] });
+      queryClient.invalidateQueries({ queryKey: ['seasons', 'with-episodes'] });
+    },
+  });
+}
+
 export function useDeleteEpisode() {
   const queryClient = useQueryClient();
   
