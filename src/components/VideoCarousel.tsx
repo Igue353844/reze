@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useCallback, memo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoCard } from './VideoCard';
@@ -9,10 +9,10 @@ interface VideoCarouselProps {
   videos: Video[];
 }
 
-export function VideoCarousel({ title, videos }: VideoCarouselProps) {
+export const VideoCarousel = memo(function VideoCarousel({ title, videos }: VideoCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const scroll = (direction: 'left' | 'right') => {
+  const scroll = useCallback((direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
     
     const scrollAmount = scrollRef.current.clientWidth * 0.8;
@@ -20,7 +20,7 @@ export function VideoCarousel({ title, videos }: VideoCarouselProps) {
       left: direction === 'left' ? -scrollAmount : scrollAmount,
       behavior: 'smooth',
     });
-  };
+  }, []);
 
   if (videos.length === 0) return null;
 
@@ -68,4 +68,4 @@ export function VideoCarousel({ title, videos }: VideoCarouselProps) {
       </div>
     </section>
   );
-}
+});
