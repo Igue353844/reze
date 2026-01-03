@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { HeroBanner } from '@/components/HeroBanner';
 import { VideoCarousel } from '@/components/VideoCarousel';
+import { ContinueWatching } from '@/components/ContinueWatching';
 import { useVideos, useFeaturedVideos, useCategories } from '@/hooks/useVideos';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -108,10 +109,13 @@ const Index = () => {
 
       {/* Content Carousels */}
       <div className="container mx-auto lg:px-8 relative z-10 space-y-2" style={{ marginTop: user ? '-5rem' : '0' }}>
+        {/* Continue Watching - Only for logged in users */}
+        {user && <ContinueWatching />}
+
         {/* Recent Additions */}
         <VideoCarousel 
           title="Adicionados Recentemente" 
-          videos={recentVideos} 
+          videos={recentVideos}
         />
 
         {/* Movies */}
