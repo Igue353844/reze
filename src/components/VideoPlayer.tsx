@@ -98,30 +98,44 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles, videoId,
     setCurrentQuality('auto');
   }, [src]);
 
+  // Track if initial progress has been applied
+  const initialProgressAppliedRef = useRef(false);
+  const hasStartedPlayingRef = useRef(false);
+
+  // Reset flags when video/episode changes
+  useEffect(() => {
+    initialProgressAppliedRef.current = false;
+    hasStartedPlayingRef.current = false;
+  }, [videoId, episodeId]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
-      // Call progress update callback
-      if (onProgressUpdate && video.duration > 0) {
+      // Only call progress update if user has actually started watching (not just loading)
+      if (onProgressUpdate && video.duration > 0 && hasStartedPlayingRef.current && video.currentTime > 1) {
         onProgressUpdate(video.currentTime, video.duration);
       }
     };
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
       setIsLoading(false);
-      // Set initial progress if provided
-      if (initialProgress && initialProgress > 0 && video.duration > 0) {
+      // Set initial progress if provided and not already applied
+      if (initialProgress && initialProgress > 0 && video.duration > 0 && !initialProgressAppliedRef.current) {
         video.currentTime = Math.min(initialProgress, video.duration - 5);
+        initialProgressAppliedRef.current = true;
       }
     };
-    const handlePlay = () => setIsPlaying(true);
+    const handlePlay = () => {
+      setIsPlaying(true);
+      hasStartedPlayingRef.current = true;
+    };
     const handlePause = () => {
       setIsPlaying(false);
-      // Save progress on pause
-      if (onProgressUpdate && video.duration > 0) {
+      // Save progress on pause only if user has actually watched
+      if (onProgressUpdate && video.duration > 0 && hasStartedPlayingRef.current && video.currentTime > 1) {
         onProgressUpdate(video.currentTime, video.duration);
       }
     };
@@ -151,7 +165,7 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles, videoId,
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [currentSrc, initialProgress, onProgressUpdate]);
+  }, [currentSrc, initialProgress, onProgressUpdate, videoId, episodeId]);
 
   // Check PiP support
   useEffect(() => {

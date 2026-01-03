@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio } from 'lucide-react';
+import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -135,6 +135,15 @@ export function Navbar() {
                   <div className="px-2 py-1.5 text-sm text-muted-foreground">
                     {user.email}
                   </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/history')} className="cursor-pointer">
+                    <History className="w-4 h-4 mr-2" />
+                    Histórico
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/history')} className="cursor-pointer">
+                    <Heart className="w-4 h-4 mr-2" />
+                    Favoritos
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {isAdmin && (
                     <>

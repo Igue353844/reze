@@ -10,6 +10,7 @@ import { useVideoProgress, useSaveProgress } from '@/hooks/useWatchProgress';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FavoriteButton } from '@/components/FavoriteButton';
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import type { Episode } from '@/types/video';
@@ -172,12 +173,15 @@ const Watch = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-5xl">
           <div className="flex flex-wrap items-start gap-4 mb-4">
-            <h1 className="font-display text-3xl lg:text-5xl text-foreground">{video.title}</h1>
-            <span className="px-3 py-1 text-sm font-medium rounded bg-primary text-primary-foreground">
-              {video.type === 'movie' && 'Filme'}
-              {video.type === 'series' && 'Série'}
-              {video.type === 'trailer' && 'Trailer'}
-            </span>
+            <h1 className="font-display text-3xl lg:text-5xl text-foreground flex-1">{video.title}</h1>
+            <div className="flex items-center gap-2">
+              <FavoriteButton videoId={video.id} videoTitle={video.title} />
+              <span className="px-3 py-1 text-sm font-medium rounded bg-primary text-primary-foreground">
+                {video.type === 'movie' && 'Filme'}
+                {video.type === 'series' && 'Série'}
+                {video.type === 'trailer' && 'Trailer'}
+              </span>
+            </div>
           </div>
 
           {currentEpisode && (
