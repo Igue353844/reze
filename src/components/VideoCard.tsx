@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Clock } from 'lucide-react';
 import type { Video } from '@/types/video';
@@ -8,13 +9,22 @@ interface VideoCardProps {
   className?: string;
 }
 
-export function VideoCard({ video, className }: VideoCardProps) {
-  const formatDuration = (minutes: number | null) => {
-    if (!minutes) return null;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
+export const VideoCard = memo(function VideoCard({ video, className }: VideoCardProps) {
+  const formattedDuration = useMemo(() => {
+    if (!video.duration_minutes) return null;
+    const hours = Math.floor(video.duration_minutes / 60);
+    const mins = video.duration_minutes % 60;
     return hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
-  };
+  }, [video.duration_minutes]);
+
+  const typeLabel = useMemo(() => {
+    switch (video.type) {
+      case 'movie': return 'Filme';
+      case 'series': return 'Série';
+      case 'trailer': return 'Trailer';
+      default: return '';
+    }
+  }, [video.type]);
 
   return (
     <Link 
@@ -53,9 +63,7 @@ export function VideoCard({ video, className }: VideoCardProps) {
         {/* Type Badge */}
         <div className="absolute top-2 left-2">
           <span className="px-2 py-1 text-xs font-medium rounded bg-primary/90 text-primary-foreground">
-            {video.type === 'movie' && 'Filme'}
-            {video.type === 'series' && 'Série'}
-            {video.type === 'trailer' && 'Trailer'}
+            {typeLabel}
           </span>
         </div>
       </div>
@@ -68,12 +76,12 @@ export function VideoCard({ video, className }: VideoCardProps) {
         
         <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
           {video.year && <span>{video.year}</span>}
-          {video.duration_minutes && (
+          {formattedDuration && (
             <>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {formatDuration(video.duration_minutes)}
+                {formattedDuration}
               </span>
             </>
           )}
@@ -87,4 +95,4 @@ export function VideoCard({ video, className }: VideoCardProps) {
       </div>
     </Link>
   );
-}
+});

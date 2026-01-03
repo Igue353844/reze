@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { HeroBanner } from '@/components/HeroBanner';
@@ -6,7 +7,7 @@ import { useVideos, useFeaturedVideos, useCategories } from '@/hooks/useVideos';
 import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Play, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 
 const Index = () => {
   const { data: videos, isLoading: videosLoading } = useVideos();
@@ -14,28 +15,37 @@ const Index = () => {
   const { data: categories } = useCategories();
   const { user } = useAuth();
 
-  const getFeaturedOrLatest = () => {
+  // Memoize all computed video lists to prevent re-renders
+  const featuredOrLatest = useMemo(() => {
     if (featuredVideos && featuredVideos.length > 0) {
       return featuredVideos;
     }
     return videos?.slice(0, 5) || [];
-  };
+  }, [featuredVideos, videos]);
 
-  const getVideosByCategory = (categoryId: string) => {
-    return videos?.filter(v => v.category_id === categoryId) || [];
-  };
-
-  const getRecentVideos = () => {
+  const recentVideos = useMemo(() => {
     return videos?.slice(0, 20) || [];
-  };
+  }, [videos]);
 
-  const getMovies = () => {
+  const movies = useMemo(() => {
     return videos?.filter(v => v.type === 'movie').slice(0, 20) || [];
-  };
+  }, [videos]);
 
-  const getSeries = () => {
+  const series = useMemo(() => {
     return videos?.filter(v => v.type === 'series').slice(0, 20) || [];
-  };
+  }, [videos]);
+
+  const videosByCategory = useMemo(() => {
+    if (!categories || !videos) return {};
+    const result: Record<string, typeof videos> = {};
+    categories.forEach(category => {
+      const categoryVideos = videos.filter(v => v.category_id === category.id);
+      if (categoryVideos.length > 0) {
+        result[category.id] = categoryVideos;
+      }
+    });
+    return result;
+  }, [categories, videos]);
 
   if (videosLoading || featuredLoading) {
     return (
@@ -63,7 +73,7 @@ const Index = () => {
   return (
     <Layout>
       {/* Hero Banner */}
-      <HeroBanner videos={getFeaturedOrLatest()} />
+      <HeroBanner videos={featuredOrLatest} />
 
       {/* CTA for non-logged users */}
       {!user && (
@@ -101,29 +111,29 @@ const Index = () => {
         {/* Recent Additions */}
         <VideoCarousel 
           title="Adicionados Recentemente" 
-          videos={getRecentVideos()} 
+          videos={recentVideos} 
         />
 
         {/* Movies */}
-        {getMovies().length > 0 && (
+        {movies.length > 0 && (
           <VideoCarousel 
             title="Filmes" 
-            videos={getMovies()} 
+            videos={movies} 
           />
         )}
 
         {/* Series */}
-        {getSeries().length > 0 && (
+        {series.length > 0 && (
           <VideoCarousel 
             title="Séries" 
-            videos={getSeries()} 
+            videos={series} 
           />
         )}
 
         {/* Categories */}
         {categories?.map(category => {
-          const categoryVideos = getVideosByCategory(category.id);
-          if (categoryVideos.length === 0) return null;
+          const categoryVideos = videosByCategory[category.id];
+          if (!categoryVideos || categoryVideos.length === 0) return null;
           
           return (
             <VideoCarousel 

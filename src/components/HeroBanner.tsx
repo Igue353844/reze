@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,18 +8,19 @@ interface HeroBannerProps {
   videos: Video[];
 }
 
-export function HeroBanner({ videos }: HeroBannerProps) {
+export const HeroBanner = memo(function HeroBanner({ videos }: HeroBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const videosLength = videos.length;
 
   useEffect(() => {
-    if (videos.length <= 1) return;
+    if (videosLength <= 1) return;
     
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % videos.length);
+      setCurrentIndex((prev) => (prev + 1) % videosLength);
     }, 8000);
 
     return () => clearInterval(interval);
-  }, [videos.length]);
+  }, [videosLength]);
 
   if (videos.length === 0) {
     return (
@@ -44,17 +45,17 @@ export function HeroBanner({ videos }: HeroBannerProps) {
 
   const currentVideo = videos[currentIndex];
 
-  const goToSlide = (index: number) => {
+  const goToSlide = useCallback((index: number) => {
     setCurrentIndex(index);
-  };
+  }, []);
 
-  const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + videos.length) % videos.length);
-  };
+  const goToPrevious = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + videosLength) % videosLength);
+  }, [videosLength]);
 
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % videos.length);
-  };
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % videosLength) ;
+  }, [videosLength]);
 
   return (
     <div className="relative h-[70vh] lg:h-[85vh] overflow-hidden">
@@ -176,4 +177,4 @@ export function HeroBanner({ videos }: HeroBannerProps) {
       )}
     </div>
   );
-}
+});
