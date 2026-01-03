@@ -86,6 +86,22 @@ const Watch = () => {
   const currentVideoUrl = currentEpisode?.video_url || video?.video_url;
   const currentPoster = currentEpisode?.poster_url || video?.banner_url || video?.poster_url;
 
+  // Check if URL is an embed/iframe link (not a direct video file)
+  const isEmbedUrl = (url: string): boolean => {
+    const embedPatterns = [
+      /seekee\.ai/i,
+      /drive\.google\.com/i,
+      /youtube\.com/i,
+      /youtu\.be/i,
+      /vimeo\.com/i,
+      /dailymotion\.com/i,
+      /embed/i,
+    ];
+    return embedPatterns.some(pattern => pattern.test(url));
+  };
+
+  const isEmbed = currentVideoUrl ? isEmbedUrl(currentVideoUrl) : false;
+
   const getEmbedCode = () => {
     if (!currentVideoUrl) return '';
     const embedUrl = currentEpisode 
@@ -149,15 +165,26 @@ const Watch = () => {
           </Link>
 
           {currentVideoUrl ? (
-            <VideoPlayer 
-              src={currentVideoUrl} 
-              poster={currentPoster || undefined}
-              title={currentEpisode ? `${video.title} - ${currentEpisode.title}` : video.title}
-              videoId={video.id}
-              episodeId={currentEpisode?.id || null}
-              initialProgress={watchProgress?.progress_seconds}
-              onProgressUpdate={handleProgressUpdate}
-            />
+            isEmbed ? (
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <iframe
+                  src={currentVideoUrl}
+                  className="w-full h-full border-0"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              </div>
+            ) : (
+              <VideoPlayer 
+                src={currentVideoUrl} 
+                poster={currentPoster || undefined}
+                title={currentEpisode ? `${video.title} - ${currentEpisode.title}` : video.title}
+                videoId={video.id}
+                episodeId={currentEpisode?.id || null}
+                initialProgress={watchProgress?.progress_seconds}
+                onProgressUpdate={handleProgressUpdate}
+              />
+            )
           ) : (
             <div className="aspect-video bg-secondary rounded-lg flex items-center justify-center">
               <p className="text-muted-foreground">
