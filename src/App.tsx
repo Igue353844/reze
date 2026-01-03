@@ -8,6 +8,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Catalog from "./pages/Catalog";
 import Watch from "./pages/Watch";
+import WatchHistory from "./pages/WatchHistory";
 import Embed from "./pages/Embed";
 import LiveTV from "./pages/LiveTV";
 import Admin from "./pages/Admin";
@@ -42,6 +43,11 @@ const App = () => (
             <Route path="/watch/:slug" element={
               <ProtectedRoute>
                 <Watch />
+              </ProtectedRoute>
+            } />
+            <Route path="/history" element={
+              <ProtectedRoute>
+                <WatchHistory />
               </ProtectedRoute>
             } />
             

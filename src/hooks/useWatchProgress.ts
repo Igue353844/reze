@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 
 export interface WatchProgress {
   id: string;
@@ -35,7 +35,7 @@ export interface WatchProgressWithVideo extends WatchProgress {
   } | null;
 }
 
-// Hook to get all watch progress for continue watching section
+// Hook to get all watch progress for continue watching section (only items with actual progress)
 export function useContinueWatching() {
   const { user } = useAuth();
 
@@ -68,6 +68,7 @@ export function useContinueWatching() {
         `)
         .eq('user_id', user.id)
         .eq('completed', false)
+        .gt('progress_seconds', 0) // Only show items with actual progress
         .order('last_watched_at', { ascending: false })
         .limit(20);
 
@@ -79,13 +80,18 @@ export function useContinueWatching() {
       return data as unknown as WatchProgressWithVideo[];
     },
     enabled: !!user,
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 30, // 30 seconds for faster updates
+    refetchOnWindowFocus: true,
   });
 }
 
 // Hook to get watch progress for a specific video/episode
 export function useVideoProgress(videoId: string | undefined, episodeId?: string | null) {
   const { user } = useAuth();
+  const prevKeyRef = useRef<string>('');
+
+  // Create a stable key for the current video/episode
+  const currentKey = `${videoId}-${episodeId || 'null'}`;
 
   return useQuery({
     queryKey: ['watch-progress', videoId, episodeId, user?.id],
@@ -114,7 +120,10 @@ export function useVideoProgress(videoId: string | undefined, episodeId?: string
       return data as WatchProgress | null;
     },
     enabled: !!user && !!videoId,
-    staleTime: 1000 * 30, // 30 seconds
+    staleTime: 1000 * 10, // 10 seconds - more responsive
+    refetchOnMount: true,
+    // Force refetch when episode changes
+    refetchOnWindowFocus: currentKey !== prevKeyRef.current,
   });
 }
 
