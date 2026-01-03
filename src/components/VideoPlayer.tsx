@@ -10,7 +10,10 @@ import {
   SkipForward,
   Settings,
   Sun,
-  Gauge
+  Gauge,
+  PictureInPicture2,
+  Captions,
+  CaptionsOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -22,6 +25,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 
 export type VideoQuality = '144p' | '240p' | '480p' | '720p' | '1080p' | '2K' | '4K' | 'auto';
@@ -31,16 +37,23 @@ export interface QualityOption {
   src: string;
 }
 
+export interface SubtitleTrack {
+  label: string;
+  language: string;
+  src: string;
+}
+
 interface VideoPlayerProps {
   src: string;
   poster?: string;
   title?: string;
   qualities?: QualityOption[];
+  subtitles?: SubtitleTrack[];
 }
 
 const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
-export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps) {
+export function VideoPlayer({ src, poster, title, qualities, subtitles }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -56,6 +69,10 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [brightness, setBrightness] = useState(100);
   const [showGestureIndicator, setShowGestureIndicator] = useState<{ type: 'seek' | 'brightness' | 'volume'; value: number } | null>(null);
+  const [isPiPActive, setIsPiPActive] = useState(false);
+  const [isPiPSupported, setIsPiPSupported] = useState(false);
+  const [activeSubtitle, setActiveSubtitle] = useState<string | null>(null);
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
   const controlsTimeout = useRef<NodeJS.Timeout>();
   const gestureTimeout = useRef<NodeJS.Timeout>();
 
@@ -108,12 +125,55 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
     };
   }, [currentSrc]);
 
+  // Check PiP support
+  useEffect(() => {
+    setIsPiPSupported('pictureInPictureEnabled' in document && document.pictureInPictureEnabled);
+  }, []);
+
+  // PiP event listeners
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleEnterPiP = () => setIsPiPActive(true);
+    const handleLeavePiP = () => setIsPiPActive(false);
+
+    video.addEventListener('enterpictureinpicture', handleEnterPiP);
+    video.addEventListener('leavepictureinpicture', handleLeavePiP);
+
+    return () => {
+      video.removeEventListener('enterpictureinpicture', handleEnterPiP);
+      video.removeEventListener('leavepictureinpicture', handleLeavePiP);
+    };
+  }, []);
+
   // Apply playback speed
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.playbackRate = playbackSpeed;
     }
   }, [playbackSpeed]);
+
+  // Handle subtitle track changes
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Disable all tracks first
+    for (let i = 0; i < video.textTracks.length; i++) {
+      video.textTracks[i].mode = 'disabled';
+    }
+
+    // Enable selected track
+    if (subtitlesEnabled && activeSubtitle) {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        if (video.textTracks[i].language === activeSubtitle) {
+          video.textTracks[i].mode = 'showing';
+          break;
+        }
+      }
+    }
+  }, [activeSubtitle, subtitlesEnabled]);
 
   const handleMouseMove = () => {
     setShowControls(true);
@@ -201,6 +261,31 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
 
   const handleBrightnessChange = (value: number[]) => {
     setBrightness(value[0]);
+  };
+
+  const togglePiP = async () => {
+    const video = videoRef.current;
+    if (!video || !isPiPSupported) return;
+
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await video.requestPictureInPicture();
+      }
+    } catch (error) {
+      console.error('PiP error:', error);
+    }
+  };
+
+  const handleSubtitleChange = (language: string | null) => {
+    if (language === null) {
+      setSubtitlesEnabled(false);
+      setActiveSubtitle(null);
+    } else {
+      setSubtitlesEnabled(true);
+      setActiveSubtitle(language);
+    }
   };
 
   // Touch gesture handlers
@@ -340,7 +425,19 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
         style={{ filter: `brightness(${brightness}%)` }}
         onClick={togglePlay}
         playsInline
-      />
+        crossOrigin="anonymous"
+      >
+        {/* Subtitle tracks */}
+        {subtitles?.map((track) => (
+          <track
+            key={track.language}
+            kind="subtitles"
+            label={track.label}
+            srcLang={track.language}
+            src={track.src}
+          />
+        ))}
+      </video>
 
       {/* Gesture Indicator */}
       {showGestureIndicator && (
@@ -535,8 +632,75 @@ export function VideoPlayer({ src, poster, title, qualities }: VideoPlayerProps)
                     ))}
                   </>
                 )}
+
+                {/* Subtitles */}
+                {subtitles && subtitles.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="flex items-center gap-2">
+                        <Captions className="w-4 h-4" />
+                        Legendas
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem
+                          onClick={() => handleSubtitleChange(null)}
+                          className={cn(
+                            "cursor-pointer",
+                            !subtitlesEnabled && "bg-accent text-accent-foreground"
+                          )}
+                        >
+                          Desativado
+                        </DropdownMenuItem>
+                        {subtitles.map((track) => (
+                          <DropdownMenuItem
+                            key={track.language}
+                            onClick={() => handleSubtitleChange(track.language)}
+                            className={cn(
+                              "cursor-pointer",
+                              subtitlesEnabled && activeSubtitle === track.language && "bg-accent text-accent-foreground"
+                            )}
+                          >
+                            {track.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Subtitles Toggle - Quick access */}
+            {subtitles && subtitles.length > 0 && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}
+                className="h-8 w-8 sm:h-10 sm:w-10"
+              >
+                {subtitlesEnabled ? (
+                  <Captions className="w-4 h-4 sm:w-5 sm:h-5" />
+                ) : (
+                  <CaptionsOff className="w-4 h-4 sm:w-5 sm:h-5" />
+                )}
+              </Button>
+            )}
+
+            {/* Picture-in-Picture */}
+            {isPiPSupported && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={togglePiP}
+                className={cn(
+                  "h-8 w-8 sm:h-10 sm:w-10",
+                  isPiPActive && "text-primary"
+                )}
+              >
+                <PictureInPicture2 className="w-4 h-4 sm:w-5 sm:h-5" />
+              </Button>
+            )}
 
             {/* Fullscreen - Always visible */}
             <Button 
