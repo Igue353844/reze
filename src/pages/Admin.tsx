@@ -17,7 +17,8 @@ import {
   Tv,
   Radio,
   Minimize2,
-  Edit2
+  Edit2,
+  Palette
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,7 @@ import { toast } from 'sonner';
 import type { ContentType, Video as VideoType } from '@/types/video';
 import { SeriesManager } from '@/components/SeriesManager';
 import { ChannelManager } from '@/components/ChannelManager';
+import { ThemeSelector } from '@/components/ThemeSelector';
 
 // Video list item component with series management
 function VideoListItem({ 
@@ -425,7 +427,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="videos" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
             <TabsTrigger value="videos" className="gap-2">
               <Film className="w-4 h-4" />
               Vídeos
@@ -433,6 +435,10 @@ const Admin = () => {
             <TabsTrigger value="tv" className="gap-2">
               <Radio className="w-4 h-4" />
               TV ao Vivo
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2">
+              <Palette className="w-4 h-4" />
+              Tema
             </TabsTrigger>
           </TabsList>
 
@@ -785,6 +791,11 @@ const Admin = () => {
                 <ChannelManager />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Theme Settings Tab */}
+          <TabsContent value="settings">
+            <ThemeSelector />
           </TabsContent>
         </Tabs>
 
