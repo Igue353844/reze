@@ -46,6 +46,7 @@ export interface Episode {
   description: string | null;
   duration_minutes: number | null;
   poster_url: string | null;
+  banner_url: string | null;
   video_url: string | null;
   created_at: string;
 }

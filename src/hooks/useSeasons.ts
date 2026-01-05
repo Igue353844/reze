@@ -124,6 +124,7 @@ interface CreateEpisodeData {
   description?: string;
   duration_minutes?: number;
   poster_url?: string;
+  banner_url?: string;
   video_url?: string;
 }
 
@@ -156,6 +157,7 @@ interface UpdateEpisodeData {
   description?: string;
   duration_minutes?: number;
   poster_url?: string;
+  banner_url?: string;
   video_url?: string;
 }
 
