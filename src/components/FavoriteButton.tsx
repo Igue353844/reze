@@ -53,7 +53,7 @@ export function FavoriteButton({ videoId, videoTitle, variant = 'default', class
         <Heart 
           className={cn(
             'w-5 h-5 transition-colors',
-            isFavorite ? 'fill-red-500 text-red-500' : 'text-foreground'
+            isFavorite ? 'fill-primary text-primary' : 'text-foreground'
           )} 
         />
       </Button>

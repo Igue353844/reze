@@ -40,16 +40,16 @@ const Embed = () => {
 
   if (isLoading) {
     return (
-      <div className="w-full h-screen bg-black flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+      <div className="w-full h-screen bg-background flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (error || !video || !videoUrl) {
     return (
-      <div className="w-full h-screen bg-black flex items-center justify-center">
-        <p className="text-white text-lg">Vídeo não encontrado</p>
+      <div className="w-full h-screen bg-background flex items-center justify-center">
+        <p className="text-foreground text-lg">Vídeo não encontrado</p>
       </div>
     );
   }
@@ -57,7 +57,7 @@ const Embed = () => {
   // If it's an embed URL, use iframe
   if (isEmbedUrl(videoUrl)) {
     return (
-      <div className="w-full h-screen bg-black">
+      <div className="w-full h-screen bg-background">
         <iframe
           src={videoUrl}
           className="w-full h-full border-0"
@@ -70,7 +70,7 @@ const Embed = () => {
 
   // Otherwise use native video player
   return (
-    <div className="w-full h-screen bg-black">
+    <div className="w-full h-screen bg-background">
       <video
         src={videoUrl}
         poster={poster || undefined}

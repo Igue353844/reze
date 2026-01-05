@@ -46,7 +46,8 @@ export function useContinueWatching() {
 
       const { data, error } = await supabase
         .from('watch_progress')
-        .select(`
+        .select(
+          `
           *,
           videos (
             id,
@@ -65,7 +66,8 @@ export function useContinueWatching() {
               season_number
             )
           )
-        `)
+        `
+        )
         .eq('user_id', user.id)
         .eq('completed', false)
         .gt('progress_seconds', 0) // Only show items with actual progress
@@ -77,7 +79,47 @@ export function useContinueWatching() {
         throw error;
       }
 
-      return data as unknown as WatchProgressWithVideo[];
+      const rows = (data ?? []) as unknown as WatchProgressWithVideo[];
+
+      // Deduplicate (movies can create duplicates because episode_id is null)
+      const keepByKey = new Map<string, WatchProgressWithVideo>();
+      const duplicateIds: string[] = [];
+
+      for (const row of rows) {
+        const key = `${row.video_id}-${row.episode_id ?? 'null'}`;
+        const existing = keepByKey.get(key);
+
+        if (!existing) {
+          keepByKey.set(key, row);
+          continue;
+        }
+
+        const existingTime = new Date(existing.last_watched_at).getTime();
+        const rowTime = new Date(row.last_watched_at).getTime();
+
+        if (rowTime > existingTime) {
+          duplicateIds.push(existing.id);
+          keepByKey.set(key, row);
+        } else {
+          duplicateIds.push(row.id);
+        }
+      }
+
+      // Cleanup duplicates in background (user can delete their own progress)
+      if (duplicateIds.length > 0) {
+        const { error: cleanupError } = await supabase
+          .from('watch_progress')
+          .delete()
+          .in('id', duplicateIds);
+
+        if (cleanupError) {
+          console.warn('Failed to cleanup duplicated watch progress:', cleanupError);
+        }
+      }
+
+      return Array.from(keepByKey.values()).sort(
+        (a, b) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime()
+      );
     },
     enabled: !!user,
     staleTime: 1000 * 30, // 30 seconds for faster updates
@@ -150,22 +192,64 @@ export function useSaveProgress() {
       // Mark as completed if progress is > 90% of duration
       const completed = durationSeconds > 0 && progressSeconds / durationSeconds > 0.9;
 
+      const payload = {
+        user_id: user.id,
+        video_id: videoId,
+        episode_id: episodeId || null,
+        progress_seconds: Math.floor(progressSeconds),
+        duration_seconds: Math.floor(durationSeconds),
+        completed,
+        last_watched_at: new Date().toISOString(),
+      };
+
+      // episode_id NULL does not conflict on (user_id, video_id, episode_id) unique constraints,
+      // which can create duplicates for movies. So we handle movies with update -> insert.
+      if (!episodeId) {
+        const { data: existing } = await supabase
+          .from('watch_progress')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('video_id', videoId)
+          .is('episode_id', null)
+          .order('last_watched_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const { data: saved, error: saveError } = existing?.id
+          ? await supabase
+              .from('watch_progress')
+              .update(payload)
+              .eq('id', existing.id)
+              .select()
+              .single()
+          : await supabase.from('watch_progress').insert(payload).select().single();
+
+        if (saveError) {
+          console.error('Error saving watch progress:', saveError);
+          throw saveError;
+        }
+
+        // Remove any leftover duplicates for this movie
+        const { error: cleanupError } = await supabase
+          .from('watch_progress')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('video_id', videoId)
+          .is('episode_id', null)
+          .neq('id', saved.id);
+
+        if (cleanupError) {
+          console.warn('Failed to cleanup duplicated movie watch progress:', cleanupError);
+        }
+
+        return saved;
+      }
+
       const { data, error } = await supabase
         .from('watch_progress')
-        .upsert(
-          {
-            user_id: user.id,
-            video_id: videoId,
-            episode_id: episodeId || null,
-            progress_seconds: Math.floor(progressSeconds),
-            duration_seconds: Math.floor(durationSeconds),
-            completed,
-            last_watched_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'user_id,video_id,episode_id',
-          }
-        )
+        .upsert(payload, {
+          onConflict: 'user_id,video_id,episode_id',
+        })
         .select()
         .single();
 
