@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart } from 'lucide-react';
+import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ThemeSelectorCompact } from '@/components/ThemeSelectorCompact';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,8 +118,11 @@ export function Navbar() {
               </Button>
             )}
 
-            {/* Theme Toggle */}
+            {/* Theme Toggle (dark/light) */}
             <ThemeToggle />
+
+            {/* Color Theme Selector (only for logged in users) */}
+            {user && <ThemeSelectorCompact />}
 
             {/* Auth / User Menu */}
             {user ? (
