@@ -154,8 +154,10 @@ const Admin = () => {
   });
 
   const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompressionDialog, setShowCompressionDialog] = useState(false);
   const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
@@ -183,6 +185,18 @@ const Admin = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPosterPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setBannerFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBannerPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -231,6 +245,7 @@ const Admin = () => {
 
     try {
       let poster_url: string | undefined;
+      let banner_url: string | undefined;
       let video_url: string | undefined;
 
       // Upload poster
@@ -239,6 +254,15 @@ const Admin = () => {
         poster_url = await uploadPoster(posterFile) || undefined;
         if (!poster_url) {
           throw new Error('Falha ao enviar poster');
+        }
+      }
+
+      // Upload banner
+      if (bannerFile) {
+        toast.info('Enviando capa do player...');
+        banner_url = await uploadPoster(bannerFile) || undefined;
+        if (!banner_url) {
+          throw new Error('Falha ao enviar capa do player');
         }
       }
 
@@ -262,7 +286,7 @@ const Admin = () => {
         category_id: formData.category_id || undefined,
         is_featured: formData.is_featured,
         poster_url,
-        banner_url: poster_url,
+        banner_url: banner_url || poster_url, // Use banner if provided, otherwise fallback to poster
         video_url,
       });
 
@@ -279,8 +303,10 @@ const Admin = () => {
         is_featured: false,
       });
       setPosterFile(null);
+      setBannerFile(null);
       setVideoFile(null);
       setPosterPreview(null);
+      setBannerPreview(null);
 
     } catch (error) {
       console.error('Error creating video:', error);
@@ -502,42 +528,86 @@ const Admin = () => {
                   </div>
                 </div>
 
-                {/* Poster Upload */}
-                <div>
-                  <Label>Poster / Capa</Label>
-                  <div className="mt-2">
-                    {posterPreview ? (
-                      <div className="relative w-32 aspect-[2/3] rounded-lg overflow-hidden">
-                        <img 
-                          src={posterPreview} 
-                          alt="Preview" 
-                          className="w-full h-full object-cover"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 w-6 h-6"
-                          onClick={() => {
-                            setPosterFile(null);
-                            setPosterPreview(null);
-                          }}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary transition-colors">
-                        <ImageIcon className="w-8 h-8 text-muted-foreground mb-2" />
-                        <span className="text-sm text-muted-foreground">Clique para enviar</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePosterChange}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
+                {/* Poster and Banner Upload */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Poster Upload */}
+                  <div>
+                    <Label>Poster (Capa do Catálogo)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Imagem vertical exibida no catálogo</p>
+                    <div className="mt-2">
+                      {posterPreview ? (
+                        <div className="relative w-32 aspect-[2/3] rounded-lg overflow-hidden">
+                          <img 
+                            src={posterPreview} 
+                            alt="Preview Poster" 
+                            className="w-full h-full object-cover"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-1 right-1 w-6 h-6"
+                            onClick={() => {
+                              setPosterFile(null);
+                              setPosterPreview(null);
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary transition-colors">
+                          <ImageIcon className="w-8 h-8 text-muted-foreground mb-2" />
+                          <span className="text-sm text-muted-foreground">Poster</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePosterChange}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Banner Upload (Player Cover) */}
+                  <div>
+                    <Label>Banner (Capa do Player)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Imagem horizontal exibida no player</p>
+                    <div className="mt-2">
+                      {bannerPreview ? (
+                        <div className="relative w-full aspect-video rounded-lg overflow-hidden">
+                          <img 
+                            src={bannerPreview} 
+                            alt="Preview Banner" 
+                            className="w-full h-full object-cover"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-1 right-1 w-6 h-6"
+                            onClick={() => {
+                              setBannerFile(null);
+                              setBannerPreview(null);
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary transition-colors">
+                          <ImageIcon className="w-8 h-8 text-muted-foreground mb-2" />
+                          <span className="text-sm text-muted-foreground">Capa do Player</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleBannerChange}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
                   </div>
                 </div>
 
