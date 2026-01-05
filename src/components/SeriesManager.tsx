@@ -65,6 +65,8 @@ export function SeriesManager({ video }: SeriesManagerProps) {
   });
   const [episodePosterFile, setEpisodePosterFile] = useState<File | null>(null);
   const [episodePosterPreview, setEpisodePosterPreview] = useState<string | null>(null);
+  const [episodeBannerFile, setEpisodeBannerFile] = useState<File | null>(null);
+  const [episodeBannerPreview, setEpisodeBannerPreview] = useState<string | null>(null);
   const [episodeVideoFile, setEpisodeVideoFile] = useState<File | null>(null);
   const [isSubmittingEpisode, setIsSubmittingEpisode] = useState(false);
 
@@ -92,6 +94,16 @@ export function SeriesManager({ video }: SeriesManagerProps) {
       setEpisodePosterFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setEpisodePosterPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEpisodeBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEpisodeBannerFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setEpisodeBannerPreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -162,13 +174,24 @@ export function SeriesManager({ video }: SeriesManagerProps) {
     setIsSubmittingEpisode(true);
     try {
       let poster_url: string | undefined;
+      let banner_url: string | undefined;
       let video_url: string | undefined = episodeForm.video_url || undefined;
 
       if (episodePosterFile) {
-        toast.info('Enviando capa do episódio...');
+        toast.info('Enviando poster do episódio...');
         poster_url = await uploadPoster(episodePosterFile) || undefined;
         if (!poster_url && episodePosterFile) {
-          toast.error('Erro ao enviar capa do episódio');
+          toast.error('Erro ao enviar poster do episódio');
+          setIsSubmittingEpisode(false);
+          return;
+        }
+      }
+
+      if (episodeBannerFile) {
+        toast.info('Enviando banner do episódio...');
+        banner_url = await uploadPoster(episodeBannerFile) || undefined;
+        if (!banner_url && episodeBannerFile) {
+          toast.error('Erro ao enviar banner do episódio');
           setIsSubmittingEpisode(false);
           return;
         }
@@ -191,6 +214,7 @@ export function SeriesManager({ video }: SeriesManagerProps) {
         description: episodeForm.description || undefined,
         duration_minutes: episodeForm.duration_minutes ? parseInt(episodeForm.duration_minutes) : undefined,
         poster_url,
+        banner_url,
         video_url,
       });
 
@@ -198,6 +222,8 @@ export function SeriesManager({ video }: SeriesManagerProps) {
       setEpisodeForm({ episode_number: '', title: '', description: '', duration_minutes: '', video_url: '' });
       setEpisodePosterFile(null);
       setEpisodePosterPreview(null);
+      setEpisodeBannerFile(null);
+      setEpisodeBannerPreview(null);
       setEpisodeVideoFile(null);
       setAddingEpisodeToSeason(null);
     } catch (error) {
@@ -229,6 +255,7 @@ export function SeriesManager({ video }: SeriesManagerProps) {
       video_url: episode.video_url || '',
     });
     setEpisodePosterPreview(episode.poster_url);
+    setEpisodeBannerPreview(episode.banner_url);
   };
 
   const handleUpdateEpisode = async (e: React.FormEvent) => {
@@ -243,11 +270,17 @@ export function SeriesManager({ video }: SeriesManagerProps) {
     setIsSubmittingEpisode(true);
     try {
       let poster_url: string | undefined;
+      let banner_url: string | undefined;
       let video_url: string | undefined = episodeForm.video_url || undefined;
 
       if (episodePosterFile) {
-        toast.info('Enviando capa do episódio...');
+        toast.info('Enviando poster do episódio...');
         poster_url = await uploadPoster(episodePosterFile) || undefined;
+      }
+
+      if (episodeBannerFile) {
+        toast.info('Enviando banner do episódio...');
+        banner_url = await uploadPoster(episodeBannerFile) || undefined;
       }
 
       if (episodeVideoFile) {
@@ -263,6 +296,7 @@ export function SeriesManager({ video }: SeriesManagerProps) {
         description: episodeForm.description || undefined,
         duration_minutes: episodeForm.duration_minutes ? parseInt(episodeForm.duration_minutes) : undefined,
         poster_url: poster_url || (episodePosterPreview ? editingEpisode.episode.poster_url : undefined) || undefined,
+        banner_url: banner_url || (episodeBannerPreview ? editingEpisode.episode.banner_url : undefined) || undefined,
         video_url,
       });
 
@@ -280,6 +314,8 @@ export function SeriesManager({ video }: SeriesManagerProps) {
     setEpisodeForm({ episode_number: '', title: '', description: '', duration_minutes: '', video_url: '' });
     setEpisodePosterFile(null);
     setEpisodePosterPreview(null);
+    setEpisodeBannerFile(null);
+    setEpisodeBannerPreview(null);
     setEpisodeVideoFile(null);
     setAddingEpisodeToSeason(null);
     setEditingEpisode(null);
@@ -529,12 +565,12 @@ export function SeriesManager({ video }: SeriesManagerProps) {
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
                           {/* Episode Poster */}
                           <div>
-                            <Label className="text-xs">Capa do Episódio</Label>
+                            <Label className="text-xs">Poster</Label>
                             {episodePosterPreview ? (
-                              <div className="relative w-full aspect-video rounded overflow-hidden mt-1">
+                              <div className="relative w-full aspect-[2/3] rounded overflow-hidden mt-1">
                                 <img src={episodePosterPreview} alt="Preview" className="w-full h-full object-cover" />
                                 <Button
                                   type="button"
@@ -547,10 +583,35 @@ export function SeriesManager({ video }: SeriesManagerProps) {
                                 </Button>
                               </div>
                             ) : (
+                              <label className="flex flex-col items-center justify-center w-full aspect-[2/3] border-2 border-dashed border-border rounded cursor-pointer hover:border-primary transition-colors mt-1">
+                                <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">Poster</span>
+                                <input type="file" accept="image/*" onChange={handleEpisodePosterChange} className="hidden" />
+                              </label>
+                            )}
+                          </div>
+
+                          {/* Episode Banner */}
+                          <div>
+                            <Label className="text-xs">Banner (Player)</Label>
+                            {episodeBannerPreview ? (
+                              <div className="relative w-full aspect-video rounded overflow-hidden mt-1">
+                                <img src={episodeBannerPreview} alt="Preview" className="w-full h-full object-cover" />
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute top-1 right-1 w-5 h-5"
+                                  onClick={() => { setEpisodeBannerFile(null); setEpisodeBannerPreview(null); }}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ) : (
                               <label className="flex flex-col items-center justify-center w-full aspect-video border-2 border-dashed border-border rounded cursor-pointer hover:border-primary transition-colors mt-1">
                                 <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">Capa</span>
-                                <input type="file" accept="image/*" onChange={handleEpisodePosterChange} className="hidden" />
+                                <span className="text-xs text-muted-foreground">Banner</span>
+                                <input type="file" accept="image/*" onChange={handleEpisodeBannerChange} className="hidden" />
                               </label>
                             )}
                           </div>
@@ -581,6 +642,7 @@ export function SeriesManager({ video }: SeriesManagerProps) {
                             )}
                           </div>
                         </div>
+
 
                         {/* Progress */}
                         {(isUploading || progress || uploadError) && (
@@ -684,28 +746,56 @@ export function SeriesManager({ video }: SeriesManagerProps) {
               />
             </div>
             
-            <div>
-              <Label>Capa do Episódio</Label>
-              {episodePosterPreview ? (
-                <div className="relative mt-2">
-                  <img src={episodePosterPreview} alt="Preview" className="w-full aspect-video object-cover rounded" />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={() => { setEpisodePosterFile(null); setEpisodePosterPreview(null); }}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded cursor-pointer hover:border-primary transition-colors mt-2">
-                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Nova capa</span>
-                  <input type="file" accept="image/*" onChange={handleEpisodePosterChange} className="hidden" />
-                </label>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Poster */}
+              <div>
+                <Label>Poster do Episódio</Label>
+                {episodePosterPreview ? (
+                  <div className="relative mt-2">
+                    <img src={episodePosterPreview} alt="Preview" className="w-full aspect-[2/3] object-cover rounded" />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() => { setEpisodePosterFile(null); setEpisodePosterPreview(null); }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded cursor-pointer hover:border-primary transition-colors mt-2">
+                    <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Poster</span>
+                    <input type="file" accept="image/*" onChange={handleEpisodePosterChange} className="hidden" />
+                  </label>
+                )}
+              </div>
+
+              {/* Banner */}
+              <div>
+                <Label>Banner (Player)</Label>
+                {episodeBannerPreview ? (
+                  <div className="relative mt-2">
+                    <img src={episodeBannerPreview} alt="Preview" className="w-full aspect-video object-cover rounded" />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() => { setEpisodeBannerFile(null); setEpisodeBannerPreview(null); }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded cursor-pointer hover:border-primary transition-colors mt-2">
+                    <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Banner</span>
+                    <input type="file" accept="image/*" onChange={handleEpisodeBannerChange} className="hidden" />
+                  </label>
+                )}
+              </div>
             </div>
 
             {(isUploading || progress || uploadError) && (
@@ -713,7 +803,7 @@ export function SeriesManager({ video }: SeriesManagerProps) {
                 progress={progress}
                 isUploading={isUploading}
                 error={uploadError}
-                fileName={episodePosterFile?.name}
+                fileName={episodePosterFile?.name || episodeBannerFile?.name}
                 onCancel={cancelUpload}
               />
             )}

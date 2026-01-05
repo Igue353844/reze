@@ -16,7 +16,8 @@ import {
   ChevronUp,
   Tv,
   Radio,
-  Minimize2
+  Minimize2,
+  Edit2
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ import { useVideos, useCategories, useCreateVideo, useDeleteVideo } from '@/hook
 import { useUpload } from '@/hooks/useUpload';
 import { UploadProgressBar } from '@/components/UploadProgressBar';
 import { VideoCompressionDialog } from '@/components/VideoCompressionDialog';
+import { VideoEditDialog } from '@/components/VideoEditDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import type { ContentType, Video as VideoType } from '@/types/video';
@@ -57,10 +59,12 @@ import { ChannelManager } from '@/components/ChannelManager';
 // Video list item component with series management
 function VideoListItem({ 
   video, 
-  onDelete 
+  onDelete,
+  onEdit
 }: { 
   video: VideoType; 
   onDelete: (id: string, title: string) => void;
+  onEdit: (video: VideoType) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -102,6 +106,14 @@ function VideoListItem({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onEdit(video)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Edit2 className="w-4 h-4" />
+          </Button>
           {video.type === 'series' && (
             <Button
               variant="ghost"
@@ -161,6 +173,7 @@ const Admin = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompressionDialog, setShowCompressionDialog] = useState(false);
   const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
+  const [editingVideo, setEditingVideo] = useState<VideoType | null>(null);
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -740,6 +753,7 @@ const Admin = () => {
                       key={video.id}
                       video={video}
                       onDelete={handleDelete}
+                      onEdit={setEditingVideo}
                     />
                   ))}
                 </div>
@@ -781,6 +795,13 @@ const Admin = () => {
           file={pendingVideoFile}
           onCompressionComplete={handleCompressionComplete}
           onSkip={handleCompressionSkip}
+        />
+
+        {/* Video Edit Dialog */}
+        <VideoEditDialog
+          video={editingVideo}
+          open={!!editingVideo}
+          onOpenChange={(open) => !open && setEditingVideo(null)}
         />
       </div>
     </Layout>

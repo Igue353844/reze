@@ -37,6 +37,7 @@ export type Database = {
       }
       episodes: {
         Row: {
+          banner_url: string | null
           created_at: string
           description: string | null
           duration_minutes: number | null
@@ -48,6 +49,7 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          banner_url?: string | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -59,6 +61,7 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          banner_url?: string | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
