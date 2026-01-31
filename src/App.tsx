@@ -15,6 +15,8 @@ import Admin from "./pages/Admin";
 import AdminManagement from "./pages/AdminManagement";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import WatchPartyLobby from "./pages/WatchPartyLobby";
+import WatchPartyPage from "./pages/WatchParty";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +50,16 @@ const App = () => (
             <Route path="/history" element={
               <ProtectedRoute>
                 <WatchHistory />
+              </ProtectedRoute>
+            } />
+            <Route path="/party" element={
+              <ProtectedRoute>
+                <WatchPartyLobby />
+              </ProtectedRoute>
+            } />
+            <Route path="/party/:id" element={
+              <ProtectedRoute>
+                <WatchPartyPage />
               </ProtectedRoute>
             } />
             
