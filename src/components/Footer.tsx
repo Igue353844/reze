@@ -10,7 +10,7 @@ export function Footer() {
           <Link to="/" className="flex items-center gap-2">
             <Film className="w-6 h-6 text-primary" />
             <span className="font-display text-xl tracking-wider text-foreground">
-              STREAMFLIX
+              REZEFLIX
             </span>
           </Link>
 
@@ -29,7 +29,7 @@ export function Footer() {
 
           {/* Copyright */}
           <p className="text-sm text-muted-foreground">
-            © 2024 StreamFlix. Todos os direitos reservados.
+            © 2024 RezeFlix. Todos os direitos reservados.
           </p>
         </div>
       </div>

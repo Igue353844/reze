@@ -86,7 +86,7 @@ const Index = () => {
                   ASSISTA AGORA
                 </h2>
                 <p className="text-muted-foreground">
-                  Crie sua conta grátis e tenha acesso ao catálogo completo de filmes e séries.
+                  Crie sua conta grátis e tenha acesso ao catálogo completo de filmes e séries da RezeFlix.
                 </p>
               </div>
               <div className="flex gap-3">
