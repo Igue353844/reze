@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart, Palette } from 'lucide-react';
+import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart, Palette, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -83,6 +83,13 @@ export function Navbar() {
             >
               <Radio className="w-3 h-3" />
               TV ao Vivo
+            </Link>
+            <Link 
+              to="/party" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              <Users className="w-3 h-3" />
+              Watch Party
             </Link>
           </div>
 
@@ -223,6 +230,14 @@ export function Navbar() {
             >
               <Radio className="w-4 h-4 inline mr-2" />
               TV ao Vivo
+            </Link>
+            <Link 
+              to="/party" 
+              className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <Users className="w-4 h-4 inline mr-2" />
+              Watch Party
             </Link>
             {user && isAdmin && (
               <Link 
