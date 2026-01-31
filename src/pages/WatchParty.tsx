@@ -128,44 +128,46 @@ export default function WatchPartyPage() {
 
   return (
     <Layout>
-      <div className="container py-4 md:py-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl font-bold">{party.name}</h1>
+      <div className="container px-2 sm:px-4 py-2 md:py-8 max-w-7xl">
+        {/* Header - Compact on mobile */}
+        <div className="flex flex-col gap-2 mb-3 md:mb-6">
+          {/* Title row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-lg md:text-2xl font-bold truncate">{party.name}</h1>
               {isHost && (
-                <Badge className="flex items-center gap-1">
+                <Badge className="flex items-center gap-1 shrink-0">
                   <Crown className="h-3 w-3" />
-                  Host
+                  <span className="hidden sm:inline">Host</span>
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="flex items-center gap-1 text-muted-foreground text-sm shrink-0">
               <Users className="h-4 w-4" />
-              <span>{participants.length} participante(s)</span>
+              <span>{participants.length}</span>
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Actions row - scrollable on mobile */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-2 px-2 scrollbar-hide">
             <Button
               variant="outline"
               size="sm"
               onClick={handleCopyCode}
-              className="gap-2"
+              className="gap-1.5 shrink-0 h-8"
             >
-              <Copy className="h-4 w-4" />
-              <span className="font-mono font-bold">{party.code}</span>
+              <Copy className="h-3.5 w-3.5" />
+              <span className="font-mono font-bold text-xs">{party.code}</span>
             </Button>
             
             <Button
               variant="outline"
               size="sm"
               onClick={handleShare}
-              className="gap-2"
+              className="gap-1.5 shrink-0 h-8"
             >
-              <Share2 className="h-4 w-4" />
-              Compartilhar
+              <Share2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Compartilhar</span>
             </Button>
             
             {isHost ? (
@@ -173,28 +175,28 @@ export default function WatchPartyPage() {
                 variant="destructive"
                 size="sm"
                 onClick={handleEnd}
-                className="gap-2"
+                className="gap-1.5 shrink-0 h-8"
               >
-                <XCircle className="h-4 w-4" />
-                Encerrar
+                <XCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Encerrar</span>
               </Button>
             ) : (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleLeave}
-                className="gap-2"
+                className="gap-1.5 shrink-0 h-8"
               >
-                <LogOut className="h-4 w-4" />
-                Sair
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Sair</span>
               </Button>
             )}
           </div>
         </div>
 
-        {/* Main content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Video player */}
+        {/* Main content - Stack on mobile, grid on desktop */}
+        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 md:gap-6">
+          {/* Video player - Full width on mobile */}
           <div className="lg:col-span-2">
             <SyncedVideoPlayer
               party={party}
@@ -203,23 +205,37 @@ export default function WatchPartyPage() {
             />
             
             {party.videos && (
-              <div className="mt-4">
-                <h2 className="text-lg font-semibold">{party.videos.title}</h2>
+              <div className="mt-2 md:mt-4 px-1">
+                <h2 className="text-base md:text-lg font-semibold">{party.videos.title}</h2>
                 {party.episodes && (
-                  <p className="text-muted-foreground">{party.episodes.title}</p>
+                  <p className="text-sm text-muted-foreground">{party.episodes.title}</p>
                 )}
               </div>
             )}
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-4">
-            <PartyParticipants participants={participants} />
+          {/* Sidebar - Tabs on mobile, stacked on desktop */}
+          <div className="space-y-3 md:space-y-4">
+            {/* Participants - Collapsible on mobile */}
+            <details className="md:open group" open>
+              <summary className="flex items-center justify-between cursor-pointer list-none p-2 bg-card rounded-lg border md:hidden">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  <span className="font-medium">Participantes ({participants.length})</span>
+                </div>
+                <span className="text-muted-foreground text-xs group-open:hidden">Expandir</span>
+              </summary>
+              <div className="mt-2 md:mt-0">
+                <PartyParticipants participants={participants} />
+              </div>
+            </details>
+            
+            {/* Chat - More height on mobile when visible */}
             <PartyChat
               messages={messages}
               onSendMessage={handleSendMessage}
               currentUserId={user?.id}
-              className="h-[400px]"
+              className="h-[300px] md:h-[400px]"
             />
           </div>
         </div>

@@ -1,8 +1,8 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, Crown, Users, Volume2, VolumeX, Maximize } from 'lucide-react';
+import { Play, Pause, Crown, Users, Volume2, VolumeX, Maximize, RotateCcw, RotateCw } from 'lucide-react';
 import type { WatchParty } from '@/types/watchParty';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +16,8 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastSyncTime = useRef<number>(0);
+  const lastTapTime = useRef<number>(0);
+  const lastTapX = useRef<number>(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -23,6 +25,7 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [seekIndicator, setSeekIndicator] = useState<'forward' | 'backward' | null>(null);
 
   const videoUrl = party.episodes?.video_url || party.videos?.video_url;
 
@@ -115,6 +118,53 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
     }
   };
 
+  const seekBy = (seconds: number) => {
+    if (!videoRef.current) return;
+    const newTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + seconds));
+    videoRef.current.currentTime = newTime;
+    
+    // Show seek indicator
+    setSeekIndicator(seconds > 0 ? 'forward' : 'backward');
+    setTimeout(() => setSeekIndicator(null), 500);
+  };
+
+  const handleDoubleTap = (e: React.TouchEvent | React.MouseEvent) => {
+    const now = Date.now();
+    const timeDiff = now - lastTapTime.current;
+    
+    // Get tap position
+    let clientX: number;
+    if ('touches' in e) {
+      clientX = e.changedTouches[0].clientX;
+    } else {
+      clientX = e.clientX;
+    }
+    
+    const container = containerRef.current;
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    const tapX = clientX - rect.left;
+    const containerWidth = rect.width;
+    
+    // Check if this is a double tap (within 300ms and similar position)
+    if (timeDiff < 300 && Math.abs(tapX - lastTapX.current) < 50) {
+      e.preventDefault();
+      
+      // Left side = rewind, right side = forward
+      if (tapX < containerWidth / 2) {
+        seekBy(-10);
+      } else {
+        seekBy(10);
+      }
+      
+      lastTapTime.current = 0;
+    } else {
+      lastTapTime.current = now;
+      lastTapX.current = tapX;
+    }
+  };
+
   const handleSeek = (value: number[]) => {
     if (videoRef.current) {
       videoRef.current.currentTime = value[0];
@@ -192,33 +242,76 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
       onTouchStart={() => setShowControls(true)}
+      onTouchEnd={handleDoubleTap}
+      onDoubleClick={(e) => {
+        // Desktop double-click support
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const clickX = e.clientX - rect.left;
+        if (clickX < rect.width / 2) {
+          seekBy(-10);
+        } else {
+          seekBy(10);
+        }
+      }}
     >
       <video
         ref={videoRef}
         src={videoUrl}
         poster={party.videos?.poster_url || undefined}
         className="w-full h-full object-contain"
-        onClick={togglePlay}
+        onClick={(e) => {
+          // Only toggle play on single click, not double click
+          e.stopPropagation();
+          togglePlay();
+        }}
         playsInline
         webkit-playsinline="true"
       />
+
+      {/* Double-tap seek indicators */}
+      {seekIndicator && (
+        <div className={cn(
+          "absolute top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-20",
+          "bg-black/60 rounded-full p-4 animate-ping",
+          seekIndicator === 'backward' ? 'left-8' : 'right-8'
+        )}>
+          {seekIndicator === 'backward' ? (
+            <RotateCcw className="h-8 w-8 text-white" />
+          ) : (
+            <RotateCw className="h-8 w-8 text-white" />
+          )}
+        </div>
+      )}
+
+      {/* Seek hint zones - visible on touch */}
+      <div className="absolute inset-0 flex pointer-events-none">
+        <div className="flex-1 flex items-center justify-center opacity-0 group-active:opacity-100 transition-opacity">
+          <div className="text-white/50 text-xs">-10s</div>
+        </div>
+        <div className="flex-1 flex items-center justify-center opacity-0 group-active:opacity-100 transition-opacity">
+          <div className="text-white/50 text-xs">+10s</div>
+        </div>
+      </div>
       
       {/* Overlay badges */}
-      <div className="absolute top-4 left-4 flex gap-2 z-10">
+      <div className="absolute top-4 left-4 flex gap-2 z-10 pr-14">
         {isHost ? (
-          <Badge className="flex items-center gap-1 bg-primary/80 backdrop-blur-sm">
+          <Badge className="flex items-center gap-1 bg-primary/80 backdrop-blur-sm text-xs">
             <Crown className="h-3 w-3" />
-            Você é o Host
+            <span className="hidden sm:inline">Você é o Host</span>
+            <span className="sm:hidden">Host</span>
           </Badge>
         ) : (
-          <Badge variant="secondary" className="flex items-center gap-1 bg-background/80 backdrop-blur-sm">
+          <Badge variant="secondary" className="flex items-center gap-1 bg-background/80 backdrop-blur-sm text-xs">
             <Users className="h-3 w-3" />
-            Sincronizado
+            <span className="hidden sm:inline">Sincronizado</span>
+            <span className="sm:hidden">Sync</span>
           </Badge>
         )}
         
         {isSyncing && (
-          <Badge variant="outline" className="bg-background/80 backdrop-blur-sm">
+          <Badge variant="outline" className="bg-background/80 backdrop-blur-sm text-xs">
             Sincronizando...
           </Badge>
         )}
