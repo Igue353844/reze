@@ -155,6 +155,10 @@ export function Navbar() {
                     <Heart className="w-4 h-4 mr-2" />
                     Favoritos
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/party')} className="cursor-pointer">
+                    <Users className="w-4 h-4 mr-2" />
+                    Watch Party
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {isAdmin && (
                     <>
