@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, Crown, Users, Volume2, VolumeX, Maximize, RotateCcw, RotateCw, Subtitles, Loader2 } from 'lucide-react';
+import { Play, Pause, Crown, Users, Volume2, VolumeX, Maximize, RotateCcw, RotateCw, Subtitles, Loader2, SkipForward } from 'lucide-react';
 import type { WatchParty } from '@/types/watchParty';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,9 +18,19 @@ interface SyncedVideoPlayerProps {
   party: WatchParty;
   isHost: boolean;
   onPlaybackUpdate: (currentTime: number, isPlaying: boolean) => void;
+  hasNextEpisode?: boolean;
+  onNextEpisode?: () => void;
+  isChangingEpisode?: boolean;
 }
 
-export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVideoPlayerProps) {
+export function SyncedVideoPlayer({ 
+  party, 
+  isHost, 
+  onPlaybackUpdate,
+  hasNextEpisode,
+  onNextEpisode,
+  isChangingEpisode 
+}: SyncedVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastSyncTime = useRef<number>(0);
@@ -482,6 +492,24 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
                 <Subtitles className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </Button>
+
+            {/* Next episode button - only for host when watching series */}
+            {isHost && hasNextEpisode && onNextEpisode && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onNextEpisode}
+                className="text-white hover:bg-white/20 h-8 w-8 sm:h-10 sm:w-10"
+                disabled={isChangingEpisode}
+                title="Próximo episódio"
+              >
+                {isChangingEpisode ? (
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                ) : (
+                  <SkipForward className="h-4 w-4 sm:h-5 sm:w-5" />
+                )}
+              </Button>
+            )}
 
             <Badge 
               variant={party.is_playing ? "default" : "secondary"} 
