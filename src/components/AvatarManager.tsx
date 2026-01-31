@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -32,8 +33,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAvatars, AvatarSection, Avatar } from '@/hooks/useAvatars';
-import { Plus, Pencil, Trash2, Loader2, FolderPlus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Plus, Pencil, Trash2, Loader2, FolderPlus, Upload, Image } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const BG_OPTIONS = [
   { value: 'bg-pink-100 dark:bg-pink-900', label: 'Rosa', preview: 'bg-pink-100' },
@@ -126,90 +129,216 @@ function SectionDialog({ section, onSave, isPending, trigger }: SectionDialogPro
 interface AvatarDialogProps {
   avatar?: Avatar;
   sectionId: string;
-  onSave: (emoji: string, name: string, bgClass: string) => void;
+  onSave: (data: { emoji?: string; imageUrl?: string; name: string; bgClass: string }) => void;
   isPending: boolean;
   trigger: React.ReactNode;
 }
 
 function AvatarDialog({ avatar, sectionId, onSave, isPending, trigger }: AvatarDialogProps) {
   const [open, setOpen] = useState(false);
+  const [avatarType, setAvatarType] = useState<'emoji' | 'image'>(avatar?.image_url ? 'image' : 'emoji');
   const [emoji, setEmoji] = useState(avatar?.emoji || '');
+  const [imageUrl, setImageUrl] = useState(avatar?.image_url || '');
   const [name, setName] = useState(avatar?.name || '');
   const [bgClass, setBgClass] = useState(avatar?.bg_class || BG_OPTIONS[0].value);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione uma imagem');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('A imagem deve ter menos de 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `avatar-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      setImageUrl(publicUrl);
+      toast.success('Imagem enviada!');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Erro ao enviar imagem');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSave = () => {
-    if (!emoji.trim() || !name.trim()) return;
-    onSave(emoji.trim(), name.trim(), bgClass);
+    if (!name.trim()) return;
+    if (avatarType === 'emoji' && !emoji.trim()) return;
+    if (avatarType === 'image' && !imageUrl.trim()) return;
+
+    onSave({
+      emoji: avatarType === 'emoji' ? emoji.trim() : undefined,
+      imageUrl: avatarType === 'image' ? imageUrl.trim() : undefined,
+      name: name.trim(),
+      bgClass,
+    });
     setOpen(false);
     if (!avatar) {
       setEmoji('');
+      setImageUrl('');
       setName('');
       setBgClass(BG_OPTIONS[0].value);
+      setAvatarType('emoji');
     }
   };
+
+  const isValid = name.trim() && (
+    (avatarType === 'emoji' && emoji.trim()) || 
+    (avatarType === 'image' && imageUrl.trim())
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{avatar ? 'Editar Avatar' : 'Novo Avatar'}</DialogTitle>
           <DialogDescription>
             {avatar ? 'Edite os dados do avatar.' : 'Adicione um novo avatar à seção.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="flex items-center gap-4">
-            <div className={cn(
-              "w-16 h-16 rounded-full flex items-center justify-center text-3xl",
-              bgClass.split(' ')[0]
-            )}>
-              {emoji || '?'}
+        
+        <Tabs value={avatarType} onValueChange={(v) => setAvatarType(v as 'emoji' | 'image')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="emoji">Emoji</TabsTrigger>
+            <TabsTrigger value="image">Imagem</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="emoji" className="space-y-4 mt-4">
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "w-16 h-16 rounded-full flex items-center justify-center text-3xl",
+                bgClass.split(' ')[0]
+              )}>
+                {emoji || '?'}
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="avatar-emoji">Emoji</Label>
+                <Input
+                  id="avatar-emoji"
+                  placeholder="🎀"
+                  value={emoji}
+                  onChange={(e) => setEmoji(e.target.value)}
+                  className="text-2xl"
+                />
+              </div>
             </div>
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="avatar-emoji">Emoji</Label>
-              <Input
-                id="avatar-emoji"
-                placeholder="🎀"
-                value={emoji}
-                onChange={(e) => setEmoji(e.target.value)}
-                className="text-2xl"
-              />
+            <div className="space-y-2">
+              <Label>Cor de Fundo</Label>
+              <Select value={bgClass} onValueChange={setBgClass}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BG_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-4 h-4 rounded-full", opt.preview)} />
+                        {opt.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="avatar-name">Nome</Label>
-            <Input
-              id="avatar-name"
-              placeholder="Ex: Laço Rosa"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Cor de Fundo</Label>
-            <Select value={bgClass} onValueChange={setBgClass}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {BG_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-4 h-4 rounded-full", opt.preview)} />
-                      {opt.label}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          </TabsContent>
+
+          <TabsContent value="image" className="space-y-4 mt-4">
+            <div className="flex flex-col items-center gap-4">
+              {imageUrl ? (
+                <div className="w-20 h-20 rounded-full overflow-hidden">
+                  <img 
+                    src={imageUrl} 
+                    alt="Avatar preview" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+                  <Image className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
+              
+              <div className="flex flex-col items-center gap-2 w-full">
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Fazer Upload
+                    </>
+                  )}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <span className="text-xs text-muted-foreground">PNG, JPG até 5MB</span>
+              </div>
+
+              <div className="w-full space-y-2">
+                <Label htmlFor="avatar-url">Ou cole uma URL</Label>
+                <Input
+                  id="avatar-url"
+                  placeholder="https://..."
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                />
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <div className="space-y-2">
+          <Label htmlFor="avatar-name">Nome</Label>
+          <Input
+            id="avatar-name"
+            placeholder="Ex: Naruto Uzumaki"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={isPending || !emoji.trim() || !name.trim()}>
+          <Button onClick={handleSave} disabled={isPending || !isValid || isUploading}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
           </Button>
         </DialogFooter>
@@ -268,8 +397,8 @@ export function AvatarManager() {
                     <div className="flex items-center gap-2">
                       <AvatarDialog
                         sectionId={section.id}
-                        onSave={(emoji, name, bgClass) => 
-                          createAvatar.mutate({ sectionId: section.id, emoji, name, bgClass })
+                        onSave={({ emoji, imageUrl, name, bgClass }) => 
+                          createAvatar.mutate({ sectionId: section.id, emoji, imageUrl, name, bgClass })
                         }
                         isPending={createAvatar.isPending}
                         trigger={
@@ -329,12 +458,22 @@ export function AvatarManager() {
                           key={avatar.id}
                           className="relative group flex flex-col items-center gap-1 p-2 rounded-lg border bg-card"
                         >
-                          <div className={cn(
-                            "w-12 h-12 rounded-full flex items-center justify-center text-xl",
-                            avatar.bg_class.split(' ')[0]
-                          )}>
-                            {avatar.emoji}
-                          </div>
+                          {avatar.image_url ? (
+                            <div className="w-12 h-12 rounded-full overflow-hidden">
+                              <img 
+                                src={avatar.image_url} 
+                                alt={avatar.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className={cn(
+                              "w-12 h-12 rounded-full flex items-center justify-center text-xl",
+                              avatar.bg_class.split(' ')[0]
+                            )}>
+                              {avatar.emoji}
+                            </div>
+                          )}
                           <span className="text-xs text-muted-foreground truncate max-w-full">
                             {avatar.name}
                           </span>
@@ -342,8 +481,8 @@ export function AvatarManager() {
                             <AvatarDialog
                               avatar={avatar}
                               sectionId={section.id}
-                              onSave={(emoji, name, bgClass) => 
-                                updateAvatar.mutate({ id: avatar.id, emoji, name, bgClass })
+                              onSave={({ emoji, imageUrl, name, bgClass }) => 
+                                updateAvatar.mutate({ id: avatar.id, emoji, imageUrl, name, bgClass })
                               }
                               isPending={updateAvatar.isPending}
                               trigger={

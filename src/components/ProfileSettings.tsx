@@ -112,9 +112,17 @@ export function ProfileSettings({ children }: ProfileSettingsProps) {
                 )}>
                   {avatarInfo.emoji}
                 </div>
+              ) : avatarInfo?.type === 'image' || avatarInfo?.type === 'url' ? (
+                <div className="h-24 w-24 rounded-full overflow-hidden">
+                  <img 
+                    src={avatarInfo.url} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               ) : (
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={avatarInfo?.url || undefined} alt="Avatar" />
+                  <AvatarImage src={undefined} alt="Avatar" />
                   <AvatarFallback className="text-2xl bg-primary/20">
                     {getInitials()}
                   </AvatarFallback>

@@ -46,8 +46,9 @@ export type Database = {
           bg_class: string
           created_at: string
           display_order: number
-          emoji: string
+          emoji: string | null
           id: string
+          image_url: string | null
           name: string
           section_id: string
         }
@@ -55,8 +56,9 @@ export type Database = {
           bg_class?: string
           created_at?: string
           display_order?: number
-          emoji: string
+          emoji?: string | null
           id?: string
+          image_url?: string | null
           name: string
           section_id: string
         }
@@ -64,8 +66,9 @@ export type Database = {
           bg_class?: string
           created_at?: string
           display_order?: number
-          emoji?: string
+          emoji?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           section_id?: string
         }
