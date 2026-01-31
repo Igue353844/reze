@@ -44,13 +44,17 @@ export default function WatchPartyPage() {
     isInCall,
     isMuted,
     isVideoEnabled,
+    isScreenSharing,
     isSpeaking,
     participants: callParticipants,
     remoteStreams,
+    screenShareStream,
+    remoteScreenShares,
     joinCall,
     leaveCall,
     toggleMute,
     toggleVideo,
+    toggleScreenShare,
     setLocalVideoRef,
   } = useVideoCall(id);
 
@@ -183,13 +187,17 @@ export default function WatchPartyPage() {
               isInCall={isInCall}
               isMuted={isMuted}
               isVideoEnabled={isVideoEnabled}
+              isScreenSharing={isScreenSharing}
               isSpeaking={isSpeaking}
               participants={callParticipants}
               remoteStreams={remoteStreams}
+              screenShareStream={screenShareStream}
+              remoteScreenShares={remoteScreenShares}
               onJoinCall={joinCall}
               onLeaveCall={leaveCall}
               onToggleMute={toggleMute}
               onToggleVideo={toggleVideo}
+              onToggleScreenShare={toggleScreenShare}
               setLocalVideoRef={setLocalVideoRef}
             />
 
