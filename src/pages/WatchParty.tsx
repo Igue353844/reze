@@ -29,10 +29,13 @@ export default function WatchPartyPage() {
     messages, 
     isLoading, 
     isHost,
+    hasNextEpisode,
+    nextEpisode,
     sendMessage,
     updatePlayback,
     leaveParty,
-    endParty
+    endParty,
+    changeToNextEpisode
   } = useWatchParty(id);
 
   const handleCopyCode = () => {
@@ -76,6 +79,15 @@ export default function WatchPartyPage() {
       navigate('/party');
     } catch (error) {
       toast.error('Erro ao encerrar sala');
+    }
+  };
+
+  const handleNextEpisode = async () => {
+    try {
+      await changeToNextEpisode.mutateAsync();
+      toast.success(`Mudando para: ${nextEpisode?.title}`);
+    } catch (error) {
+      toast.error('Erro ao mudar para próximo episódio');
     }
   };
 
@@ -202,6 +214,9 @@ export default function WatchPartyPage() {
               party={party}
               isHost={isHost}
               onPlaybackUpdate={updatePlayback}
+              hasNextEpisode={hasNextEpisode}
+              onNextEpisode={handleNextEpisode}
+              isChangingEpisode={changeToNextEpisode.isPending}
             />
             
             {party.videos && (

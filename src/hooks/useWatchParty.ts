@@ -1,8 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import type { WatchParty, WatchPartyParticipant, WatchPartyMessage } from '@/types/watchParty';
+
+interface NextEpisodeInfo {
+  id: string;
+  title: string;
+  episode_number: number;
+  video_url: string | null;
+}
 
 export function useWatchParty(partyId?: string) {
   const { user } = useAuth();
@@ -10,6 +17,7 @@ export function useWatchParty(partyId?: string) {
   const [participants, setParticipants] = useState<WatchPartyParticipant[]>([]);
   const [messages, setMessages] = useState<WatchPartyMessage[]>([]);
   const [currentParty, setCurrentParty] = useState<WatchParty | null>(null);
+  const [nextEpisode, setNextEpisode] = useState<NextEpisodeInfo | null>(null);
 
   // Fetch party details
   const { data: party, isLoading } = useQuery({
@@ -73,6 +81,79 @@ export function useWatchParty(partyId?: string) {
   useEffect(() => {
     if (initialMessages) setMessages(initialMessages);
   }, [initialMessages]);
+
+  // Fetch next episode when watching a series
+  useEffect(() => {
+    const fetchNextEpisode = async () => {
+      if (!currentParty?.episode_id) {
+        setNextEpisode(null);
+        return;
+      }
+
+      // First, get the current episode to find its season and episode number
+      const { data: currentEpisode, error: episodeError } = await supabase
+        .from('episodes')
+        .select('season_id, episode_number')
+        .eq('id', currentParty.episode_id)
+        .single();
+
+      if (episodeError || !currentEpisode) {
+        setNextEpisode(null);
+        return;
+      }
+
+      // Try to find the next episode in the same season
+      const { data: nextInSeason } = await supabase
+        .from('episodes')
+        .select('id, title, episode_number, video_url')
+        .eq('season_id', currentEpisode.season_id)
+        .eq('episode_number', currentEpisode.episode_number + 1)
+        .single();
+
+      if (nextInSeason) {
+        setNextEpisode(nextInSeason);
+        return;
+      }
+
+      // If no next episode in current season, try next season
+      const { data: currentSeason } = await supabase
+        .from('seasons')
+        .select('video_id, season_number')
+        .eq('id', currentEpisode.season_id)
+        .single();
+
+      if (!currentSeason) {
+        setNextEpisode(null);
+        return;
+      }
+
+      // Find next season
+      const { data: nextSeason } = await supabase
+        .from('seasons')
+        .select('id')
+        .eq('video_id', currentSeason.video_id)
+        .eq('season_number', currentSeason.season_number + 1)
+        .single();
+
+      if (!nextSeason) {
+        setNextEpisode(null);
+        return;
+      }
+
+      // Get first episode of next season
+      const { data: firstOfNextSeason } = await supabase
+        .from('episodes')
+        .select('id, title, episode_number, video_url')
+        .eq('season_id', nextSeason.id)
+        .order('episode_number', { ascending: true })
+        .limit(1)
+        .single();
+
+      setNextEpisode(firstOfNextSeason || null);
+    };
+
+    fetchNextEpisode();
+  }, [currentParty?.episode_id]);
 
   // Set up realtime subscriptions
   useEffect(() => {
@@ -275,7 +356,44 @@ export function useWatchParty(partyId?: string) {
     },
   });
 
+  // Change to next episode (host only)
+  const changeToNextEpisode = useMutation({
+    mutationFn: async () => {
+      if (!user || !partyId || !nextEpisode) throw new Error('Invalid state');
+      if (currentParty?.host_id !== user.id) throw new Error('Only host can change episode');
+
+      const { error } = await supabase
+        .from('watch_parties')
+        .update({ 
+          episode_id: nextEpisode.id,
+          current_time_seconds: 0,
+          is_playing: false,
+        })
+        .eq('id', partyId)
+        .eq('host_id', user.id);
+
+      if (error) throw error;
+
+      // Update local state immediately
+      setCurrentParty(prev => prev ? {
+        ...prev,
+        episode_id: nextEpisode.id,
+        current_time_seconds: 0,
+        is_playing: false,
+        episodes: {
+          id: nextEpisode.id,
+          title: nextEpisode.title,
+          video_url: nextEpisode.video_url,
+        }
+      } : null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['watchParty', partyId] });
+    },
+  });
+
   const isHost = user?.id === currentParty?.host_id;
+  const hasNextEpisode = !!nextEpisode;
 
   return {
     party: currentParty,
@@ -283,12 +401,15 @@ export function useWatchParty(partyId?: string) {
     messages,
     isLoading,
     isHost,
+    hasNextEpisode,
+    nextEpisode,
     createParty,
     joinParty,
     leaveParty,
     sendMessage,
     updatePlayback,
     endParty,
+    changeToNextEpisode,
   };
 }
 
