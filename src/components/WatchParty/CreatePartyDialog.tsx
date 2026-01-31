@@ -33,7 +33,7 @@ export function CreatePartyDialog({ open, onOpenChange }: CreatePartyDialogProps
     try {
       const party = await createParty.mutateAsync({
         name: name.trim(),
-        videoId: selectedVideo || undefined,
+        videoId: selectedVideo && selectedVideo !== 'none' ? selectedVideo : undefined,
       });
       
       toast.success('Sala criada com sucesso!');
@@ -78,7 +78,7 @@ export function CreatePartyDialog({ open, onOpenChange }: CreatePartyDialogProps
                 <SelectValue placeholder="Selecione um filme ou série" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Escolher depois</SelectItem>
+                <SelectItem value="none">Escolher depois</SelectItem>
                 {videos?.map((video) => (
                   <SelectItem key={video.id} value={video.id}>
                     <div className="flex items-center gap-2">
