@@ -14,7 +14,8 @@ export interface AvatarSection {
 export interface Avatar {
   id: string;
   section_id: string;
-  emoji: string;
+  emoji: string | null;
+  image_url: string | null;
   name: string;
   bg_class: string;
   display_order: number;
@@ -115,9 +116,10 @@ export function useAvatars() {
 
   // Create avatar
   const createAvatar = useMutation({
-    mutationFn: async ({ sectionId, emoji, name, bgClass }: { 
+    mutationFn: async ({ sectionId, emoji, imageUrl, name, bgClass }: { 
       sectionId: string; 
-      emoji: string; 
+      emoji?: string; 
+      imageUrl?: string;
       name: string; 
       bgClass: string;
     }) => {
@@ -128,7 +130,8 @@ export function useAvatars() {
         .from('avatars')
         .insert({ 
           section_id: sectionId, 
-          emoji, 
+          emoji: emoji || null, 
+          image_url: imageUrl || null,
           name, 
           bg_class: bgClass,
           display_order: maxOrder + 1 
@@ -150,15 +153,16 @@ export function useAvatars() {
 
   // Update avatar
   const updateAvatar = useMutation({
-    mutationFn: async ({ id, emoji, name, bgClass }: { 
+    mutationFn: async ({ id, emoji, imageUrl, name, bgClass }: { 
       id: string; 
-      emoji: string; 
+      emoji?: string; 
+      imageUrl?: string;
       name: string; 
       bgClass: string;
     }) => {
       const { error } = await supabase
         .from('avatars')
-        .update({ emoji, name, bg_class: bgClass })
+        .update({ emoji: emoji || null, image_url: imageUrl || null, name, bg_class: bgClass })
         .eq('id', id);
       
       if (error) throw error;
