@@ -43,6 +43,7 @@ export function VideoEditDialog({ video, open, onOpenChange }: VideoEditDialogPr
     duration_minutes: '',
     category_id: '',
     is_featured: false,
+    embed_url: '',
   });
 
   const [posterFile, setPosterFile] = useState<File | null>(null);
@@ -61,6 +62,7 @@ export function VideoEditDialog({ video, open, onOpenChange }: VideoEditDialogPr
         duration_minutes: video.duration_minutes?.toString() || '',
         category_id: video.category_id || '',
         is_featured: video.is_featured,
+        embed_url: video.video_url || '',
       });
       setPosterPreview(video.poster_url);
       setBannerPreview(video.banner_url);
@@ -131,6 +133,7 @@ export function VideoEditDialog({ video, open, onOpenChange }: VideoEditDialogPr
         is_featured: formData.is_featured,
         poster_url: poster_url || (posterPreview ? video.poster_url : undefined) || undefined,
         banner_url: banner_url || (bannerPreview ? video.banner_url : undefined) || undefined,
+        video_url: formData.embed_url || undefined,
       });
 
       toast.success('Vídeo atualizado com sucesso!');
@@ -239,6 +242,21 @@ export function VideoEditDialog({ video, open, onOpenChange }: VideoEditDialogPr
                 className="bg-secondary border-border"
               />
             </div>
+          </div>
+
+          {/* Video URL (Embed) */}
+          <div>
+            <Label htmlFor="edit-embed-url">URL do Vídeo (Embed)</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Link de embed (YouTube, Vimeo, Google Drive, etc.) ou URL direta
+            </p>
+            <Input
+              id="edit-embed-url"
+              value={formData.embed_url}
+              onChange={(e) => setFormData(prev => ({ ...prev, embed_url: e.target.value }))}
+              placeholder="https://www.youtube.com/embed/..."
+              className="bg-secondary border-border"
+            />
           </div>
 
           {/* Poster and Banner Upload */}
