@@ -7,6 +7,7 @@ interface CallState {
   isInCall: boolean;
   isMuted: boolean;
   isVideoEnabled: boolean;
+  isScreenSharing: boolean;
   isSpeaking: boolean;
   participants: CallParticipant[];
   audioLevel: number;
@@ -17,6 +18,7 @@ interface CallParticipant {
   displayName: string;
   isMuted: boolean;
   isVideoEnabled: boolean;
+  isScreenSharing: boolean;
   isSpeaking: boolean;
 }
 
@@ -26,18 +28,21 @@ export function useVideoCall(partyId?: string) {
     isInCall: false,
     isMuted: false,
     isVideoEnabled: false,
+    isScreenSharing: false,
     isSpeaking: false,
     participants: [],
     audioLevel: 0,
   });
   
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const screenShareStreamRef = useRef<Map<string, MediaStream>>(new Map());
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Set video container ref
@@ -57,6 +62,11 @@ export function useVideoCall(partyId?: string) {
   const getRemoteStreams = useCallback(() => {
     return remoteStreamsRef.current;
   }, []);
+
+  // Get screen share streams
+  const getScreenShareStreams = useCallback(() => {
+    return screenShareStreamRef.current;
+  }, []);
   
   // Clean up function
   const cleanup = useCallback(() => {
@@ -64,6 +74,12 @@ export function useVideoCall(partyId?: string) {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
+    }
+
+    // Stop screen share stream
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
     }
     
     // Close audio context
@@ -78,6 +94,7 @@ export function useVideoCall(partyId?: string) {
     
     // Clear remote streams
     remoteStreamsRef.current.clear();
+    screenShareStreamRef.current.clear();
     
     // Unsubscribe from channel
     if (channelRef.current) {
@@ -166,6 +183,7 @@ export function useVideoCall(partyId?: string) {
               displayName: presence?.displayName || 'Unknown',
               isMuted: presence?.isMuted || false,
               isVideoEnabled: presence?.isVideoEnabled || false,
+              isScreenSharing: presence?.isScreenSharing || false,
               isSpeaking: presence?.isSpeaking || false,
             };
           });
@@ -186,6 +204,7 @@ export function useVideoCall(partyId?: string) {
           }
           
           remoteStreamsRef.current.delete(key);
+          screenShareStreamRef.current.delete(key);
           setState(prev => ({ ...prev })); // Trigger re-render
         })
         .on('broadcast', { event: 'signal' }, async ({ payload }) => {
@@ -226,6 +245,7 @@ export function useVideoCall(partyId?: string) {
               displayName,
               isMuted: false,
               isVideoEnabled: withVideo,
+              isScreenSharing: false,
               isSpeaking: false,
               online_at: new Date().toISOString(),
             });
@@ -268,11 +288,26 @@ export function useVideoCall(partyId?: string) {
         pc.addTrack(track, localStreamRef.current!);
       });
     }
+
+    // Add screen share tracks if sharing
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => {
+        pc.addTrack(track, screenStreamRef.current!);
+      });
+    }
     
     // Handle incoming tracks
     pc.ontrack = (event) => {
       const stream = event.streams[0];
-      remoteStreamsRef.current.set(peerId, stream);
+      // Check if it's a screen share stream (video track with specific label pattern)
+      const isScreenShare = event.track.kind === 'video' && 
+        (event.track.label.includes('screen') || event.track.label.includes('window') || event.track.label.includes('monitor'));
+      
+      if (isScreenShare) {
+        screenShareStreamRef.current.set(peerId, stream);
+      } else {
+        remoteStreamsRef.current.set(peerId, stream);
+      }
       setState(prev => ({ ...prev })); // Trigger re-render
     };
     
@@ -319,6 +354,7 @@ export function useVideoCall(partyId?: string) {
       isInCall: false,
       isMuted: false,
       isVideoEnabled: false,
+      isScreenSharing: false,
       isSpeaking: false,
       participants: [],
       audioLevel: 0,
@@ -344,12 +380,13 @@ export function useVideoCall(partyId?: string) {
           displayName,
           isMuted,
           isVideoEnabled: state.isVideoEnabled,
+          isScreenSharing: state.isScreenSharing,
           isSpeaking: false,
           online_at: new Date().toISOString(),
         });
       }
     }
-  }, [user, state.isVideoEnabled]);
+  }, [user, state.isVideoEnabled, state.isScreenSharing]);
 
   // Toggle video
   const toggleVideo = useCallback(async () => {
@@ -371,6 +408,7 @@ export function useVideoCall(partyId?: string) {
           displayName,
           isMuted: state.isMuted,
           isVideoEnabled,
+          isScreenSharing: state.isScreenSharing,
           isSpeaking: false,
           online_at: new Date().toISOString(),
         });
@@ -407,6 +445,7 @@ export function useVideoCall(partyId?: string) {
             displayName,
             isMuted: state.isMuted,
             isVideoEnabled: true,
+            isScreenSharing: state.isScreenSharing,
             isSpeaking: false,
             online_at: new Date().toISOString(),
           });
@@ -416,7 +455,104 @@ export function useVideoCall(partyId?: string) {
         toast.error('Erro ao ativar câmera');
       }
     }
-  }, [user, state.isMuted]);
+  }, [user, state.isMuted, state.isScreenSharing]);
+
+  // Start screen sharing
+  const startScreenShare = useCallback(async () => {
+    if (!state.isInCall) {
+      toast.error('Entre na chamada primeiro');
+      return;
+    }
+
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+
+      screenStreamRef.current = screenStream;
+
+      // Handle when user stops sharing via browser UI
+      screenStream.getVideoTracks()[0].onended = () => {
+        stopScreenShare();
+      };
+
+      // Add screen share tracks to all peer connections
+      screenStream.getTracks().forEach(track => {
+        peerConnectionsRef.current.forEach(pc => {
+          pc.addTrack(track, screenStream);
+        });
+      });
+
+      setState(prev => ({ ...prev, isScreenSharing: true }));
+
+      // Update presence
+      if (channelRef.current) {
+        const displayName = user?.email?.split('@')[0] || 'User';
+        await channelRef.current.track({
+          displayName,
+          isMuted: state.isMuted,
+          isVideoEnabled: state.isVideoEnabled,
+          isScreenSharing: true,
+          isSpeaking: false,
+          online_at: new Date().toISOString(),
+        });
+      }
+
+      toast.success('Compartilhamento de tela iniciado');
+    } catch (error) {
+      console.error('Error starting screen share:', error);
+      if ((error as Error).name === 'NotAllowedError') {
+        toast.error('Permissão negada para compartilhar tela');
+      } else {
+        toast.error('Erro ao compartilhar tela');
+      }
+    }
+  }, [state.isInCall, state.isMuted, state.isVideoEnabled, user]);
+
+  // Stop screen sharing
+  const stopScreenShare = useCallback(async () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        // Remove track from all peer connections
+        peerConnectionsRef.current.forEach(pc => {
+          const senders = pc.getSenders();
+          const sender = senders.find(s => s.track === track);
+          if (sender) {
+            pc.removeTrack(sender);
+          }
+        });
+      });
+      screenStreamRef.current = null;
+    }
+
+    setState(prev => ({ ...prev, isScreenSharing: false }));
+
+    // Update presence
+    if (channelRef.current && user) {
+      const displayName = user.email?.split('@')[0] || 'User';
+      await channelRef.current.track({
+        displayName,
+        isMuted: state.isMuted,
+        isVideoEnabled: state.isVideoEnabled,
+        isScreenSharing: false,
+        isSpeaking: false,
+        online_at: new Date().toISOString(),
+      });
+    }
+
+    toast.success('Compartilhamento de tela encerrado');
+  }, [state.isMuted, state.isVideoEnabled, user]);
+
+  // Toggle screen share
+  const toggleScreenShare = useCallback(async () => {
+    if (state.isScreenSharing) {
+      await stopScreenShare();
+    } else {
+      await startScreenShare();
+    }
+  }, [state.isScreenSharing, startScreenShare, stopScreenShare]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -429,16 +565,23 @@ export function useVideoCall(partyId?: string) {
     isInCall: state.isInCall,
     isMuted: state.isMuted,
     isVideoEnabled: state.isVideoEnabled,
+    isScreenSharing: state.isScreenSharing,
     isSpeaking: state.isSpeaking,
     participants: state.participants,
     audioLevel: state.audioLevel,
     remoteStreams: remoteStreamsRef.current,
+    screenShareStream: screenStreamRef.current,
+    remoteScreenShares: screenShareStreamRef.current,
     joinCall,
     leaveCall,
     toggleMute,
     toggleVideo,
+    toggleScreenShare,
+    startScreenShare,
+    stopScreenShare,
     setLocalVideoRef,
     setVideoContainer,
     getRemoteStreams,
+    getScreenShareStreams,
   };
 }
