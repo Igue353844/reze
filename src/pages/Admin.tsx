@@ -18,7 +18,8 @@ import {
   Radio,
   Minimize2,
   Edit2,
-  Palette
+  Palette,
+  Smile
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,7 @@ import type { ContentType, Video as VideoType } from '@/types/video';
 import { SeriesManager } from '@/components/SeriesManager';
 import { ChannelManager } from '@/components/ChannelManager';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { AvatarManager } from '@/components/AvatarManager';
 
 // Video list item component with series management
 function VideoListItem({ 
@@ -427,7 +429,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="videos" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
             <TabsTrigger value="videos" className="gap-2">
               <Film className="w-4 h-4" />
               Vídeos
@@ -435,6 +437,10 @@ const Admin = () => {
             <TabsTrigger value="tv" className="gap-2">
               <Radio className="w-4 h-4" />
               TV ao Vivo
+            </TabsTrigger>
+            <TabsTrigger value="avatars" className="gap-2">
+              <Smile className="w-4 h-4" />
+              Avatares
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Palette className="w-4 h-4" />
@@ -789,6 +795,24 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <ChannelManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Avatars Tab */}
+          <TabsContent value="avatars">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Smile className="w-5 h-5 text-primary" />
+                  Avatares de Perfil
+                </CardTitle>
+                <CardDescription>
+                  Gerencie as seções e avatares disponíveis para os usuários
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AvatarManager />
               </CardContent>
             </Card>
           </TabsContent>
