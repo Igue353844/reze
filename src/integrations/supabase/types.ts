@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      avatar_sections: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      avatars: {
+        Row: {
+          bg_class: string
+          created_at: string
+          display_order: number
+          emoji: string
+          id: string
+          name: string
+          section_id: string
+        }
+        Insert: {
+          bg_class?: string
+          created_at?: string
+          display_order?: number
+          emoji: string
+          id?: string
+          name: string
+          section_id: string
+        }
+        Update: {
+          bg_class?: string
+          created_at?: string
+          display_order?: number
+          emoji?: string
+          id?: string
+          name?: string
+          section_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatars_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string

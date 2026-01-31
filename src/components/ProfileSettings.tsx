@@ -15,7 +15,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { Camera, User, Loader2, Upload } from 'lucide-react';
-import { AvatarPicker, renderAvatarFromIdentifier } from './AvatarPicker';
+import { AvatarPicker, useAvatarDetails } from './AvatarPicker';
 import { cn } from '@/lib/utils';
 
 interface ProfileSettingsProps {
@@ -81,7 +81,7 @@ export function ProfileSettings({ children }: ProfileSettingsProps) {
     return 'U';
   };
 
-  const avatarInfo = renderAvatarFromIdentifier(selectedAvatar);
+  const avatarInfo = useAvatarDetails(selectedAvatar);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
