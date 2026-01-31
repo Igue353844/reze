@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart, Palette, Users } from 'lucide-react';
+import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ThemeSelectorCompact } from '@/components/ThemeSelectorCompact';
+import { ProfileSettings } from '@/components/ProfileSettings';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -147,6 +148,14 @@ export function Navbar() {
                     {user.email}
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <ProfileSettings>
+                      <div className="flex items-center w-full cursor-pointer">
+                        <User className="w-4 h-4 mr-2" />
+                        Meu Perfil
+                      </div>
+                    </ProfileSettings>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/history')} className="cursor-pointer">
                     <History className="w-4 h-4 mr-2" />
                     Histórico
