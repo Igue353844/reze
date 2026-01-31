@@ -7,7 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SyncedVideoPlayer } from '@/components/WatchParty/SyncedVideoPlayer';
 import { PartyChat } from '@/components/WatchParty/PartyChat';
 import { PartyParticipants } from '@/components/WatchParty/PartyParticipants';
+import { VoiceCallControls } from '@/components/WatchParty/VoiceCallControls';
 import { useWatchParty } from '@/hooks/useWatchParty';
+import { useVoiceCall } from '@/hooks/useVoiceCall';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { 
@@ -37,6 +39,16 @@ export default function WatchPartyPage() {
     endParty,
     changeToNextEpisode
   } = useWatchParty(id);
+
+  const {
+    isInCall,
+    isMuted,
+    isSpeaking,
+    participants: voiceParticipants,
+    joinCall,
+    leaveCall,
+    toggleMute,
+  } = useVoiceCall(id);
 
   const handleCopyCode = () => {
     if (party?.code) {
@@ -162,6 +174,19 @@ export default function WatchPartyPage() {
           
           {/* Actions row - scrollable on mobile */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-2 px-2 scrollbar-hide">
+            {/* Voice call controls */}
+            <VoiceCallControls
+              isInCall={isInCall}
+              isMuted={isMuted}
+              isSpeaking={isSpeaking}
+              participants={voiceParticipants}
+              onJoinCall={joinCall}
+              onLeaveCall={leaveCall}
+              onToggleMute={toggleMute}
+            />
+
+            <div className="w-px h-6 bg-border shrink-0" />
+
             <Button
               variant="outline"
               size="sm"
@@ -217,6 +242,7 @@ export default function WatchPartyPage() {
               hasNextEpisode={hasNextEpisode}
               onNextEpisode={handleNextEpisode}
               isChangingEpisode={changeToNextEpisode.isPending}
+              autoPlayNext={true}
             />
             
             {party.videos && (
