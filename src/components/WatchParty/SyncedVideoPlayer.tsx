@@ -1,10 +1,18 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, Crown, Users, Volume2, VolumeX, Maximize, RotateCcw, RotateCw } from 'lucide-react';
+import { Play, Pause, Crown, Users, Volume2, VolumeX, Maximize, RotateCcw, RotateCw, Subtitles, Loader2 } from 'lucide-react';
 import type { WatchParty } from '@/types/watchParty';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface Subtitle {
+  start: number;
+  end: number;
+  text: string;
+}
 
 interface SyncedVideoPlayerProps {
   party: WatchParty;
@@ -26,8 +34,66 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [seekIndicator, setSeekIndicator] = useState<'forward' | 'backward' | null>(null);
+  
+  // Subtitle state
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
+  const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
+  const [currentSubtitle, setCurrentSubtitle] = useState<string | null>(null);
+  const [isLoadingSubtitles, setIsLoadingSubtitles] = useState(false);
 
   const videoUrl = party.episodes?.video_url || party.videos?.video_url;
+
+  // Generate AI subtitles
+  const generateSubtitles = useCallback(async () => {
+    if (subtitles.length > 0) return; // Already have subtitles
+    
+    setIsLoadingSubtitles(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-subtitles', {
+        body: {
+          videoTitle: party.videos?.title || party.episodes?.title || 'Vídeo',
+          context: party.episodes?.title ? `Episódio de série: ${party.episodes.title}` : 'Filme ou vídeo',
+          language: 'pt-BR',
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.subtitles && Array.isArray(data.subtitles)) {
+        setSubtitles(data.subtitles);
+        toast.success('Legendas IA carregadas!');
+      }
+    } catch (error) {
+      console.error('Error generating subtitles:', error);
+      toast.error('Erro ao gerar legendas. Tente novamente.');
+      setSubtitlesEnabled(false);
+    } finally {
+      setIsLoadingSubtitles(false);
+    }
+  }, [party.videos?.title, party.episodes?.title, subtitles.length]);
+
+  // Toggle subtitles
+  const toggleSubtitles = useCallback(() => {
+    if (!subtitlesEnabled) {
+      setSubtitlesEnabled(true);
+      generateSubtitles();
+    } else {
+      setSubtitlesEnabled(false);
+    }
+  }, [subtitlesEnabled, generateSubtitles]);
+
+  // Update current subtitle based on video time
+  useEffect(() => {
+    if (!subtitlesEnabled || subtitles.length === 0) {
+      setCurrentSubtitle(null);
+      return;
+    }
+
+    const subtitle = subtitles.find(
+      (s) => currentTime >= s.start && currentTime <= s.end
+    );
+    setCurrentSubtitle(subtitle?.text || null);
+  }, [currentTime, subtitles, subtitlesEnabled]);
 
   // Sync playback from host (for non-hosts)
   useEffect(() => {
@@ -269,6 +335,27 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
         webkit-playsinline="true"
       />
 
+      {/* AI Subtitles display */}
+      {subtitlesEnabled && currentSubtitle && (
+        <div className="absolute bottom-20 sm:bottom-24 left-0 right-0 flex justify-center pointer-events-none z-15 px-4">
+          <div className="bg-black/80 text-white px-4 py-2 rounded-lg max-w-[90%] text-center">
+            <p className="text-sm sm:text-base font-medium leading-relaxed">
+              {currentSubtitle}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Loading subtitles indicator */}
+      {isLoadingSubtitles && (
+        <div className="absolute bottom-20 sm:bottom-24 left-0 right-0 flex justify-center pointer-events-none z-15">
+          <div className="bg-black/80 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Gerando legendas IA...</span>
+          </div>
+        </div>
+      )}
+
       {/* Double-tap seek indicators */}
       {seekIndicator && (
         <div className={cn(
@@ -375,23 +462,44 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
             </span>
           </div>
           
-          {/* Right controls - status badge */}
-          <Badge 
-            variant={party.is_playing ? "default" : "secondary"} 
-            className="flex items-center gap-1 text-xs px-2 py-1"
-          >
-            {party.is_playing ? (
-              <>
-                <Play className="h-3 w-3 fill-current" />
-                <span className="hidden sm:inline">Reproduzindo</span>
-              </>
-            ) : (
-              <>
-                <Pause className="h-3 w-3" />
-                <span className="hidden sm:inline">Pausado</span>
-              </>
-            )}
-          </Badge>
+          {/* Right controls */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Subtitles toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSubtitles}
+              className={cn(
+                "text-white hover:bg-white/20 h-8 w-8 sm:h-10 sm:w-10",
+                subtitlesEnabled && "bg-white/30"
+              )}
+              disabled={isLoadingSubtitles}
+              title={subtitlesEnabled ? "Desativar legendas IA" : "Ativar legendas IA"}
+            >
+              {isLoadingSubtitles ? (
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+              ) : (
+                <Subtitles className="h-4 w-4 sm:h-5 sm:w-5" />
+              )}
+            </Button>
+
+            <Badge 
+              variant={party.is_playing ? "default" : "secondary"} 
+              className="flex items-center gap-1 text-xs px-2 py-1"
+            >
+              {party.is_playing ? (
+                <>
+                  <Play className="h-3 w-3 fill-current" />
+                  <span className="hidden sm:inline">Reproduzindo</span>
+                </>
+              ) : (
+                <>
+                  <Pause className="h-3 w-3" />
+                  <span className="hidden sm:inline">Pausado</span>
+                </>
+              )}
+            </Badge>
+          </div>
         </div>
       </div>
     </div>
