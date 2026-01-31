@@ -21,6 +21,7 @@ interface SyncedVideoPlayerProps {
   hasNextEpisode?: boolean;
   onNextEpisode?: () => void;
   isChangingEpisode?: boolean;
+  autoPlayNext?: boolean;
 }
 
 export function SyncedVideoPlayer({ 
@@ -29,7 +30,8 @@ export function SyncedVideoPlayer({
   onPlaybackUpdate,
   hasNextEpisode,
   onNextEpisode,
-  isChangingEpisode 
+  isChangingEpisode,
+  autoPlayNext = true,
 }: SyncedVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -44,6 +46,8 @@ export function SyncedVideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [seekIndicator, setSeekIndicator] = useState<'forward' | 'backward' | null>(null);
+  const [showNextOverlay, setShowNextOverlay] = useState(false);
+  const nextEpisodeTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Subtitle state
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
@@ -170,11 +174,23 @@ export function SyncedVideoPlayer({
       }
     };
 
+    const handleEnded = () => {
+      // Auto-play next episode if available and enabled
+      if (isHost && hasNextEpisode && onNextEpisode && autoPlayNext) {
+        setShowNextOverlay(true);
+        nextEpisodeTimerRef.current = setTimeout(() => {
+          setShowNextOverlay(false);
+          onNextEpisode();
+        }, 5000); // 5 second countdown
+      }
+    };
+
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('seeked', handleSeeked);
+    video.addEventListener('ended', handleEnded);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
@@ -182,8 +198,14 @@ export function SyncedVideoPlayer({
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('seeked', handleSeeked);
+      video.removeEventListener('ended', handleEnded);
+      
+      // Clear timer on cleanup
+      if (nextEpisodeTimerRef.current) {
+        clearTimeout(nextEpisodeTimerRef.current);
+      }
     };
-  }, [isHost, onPlaybackUpdate]);
+  }, [isHost, onPlaybackUpdate, hasNextEpisode, onNextEpisode, autoPlayNext]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -390,6 +412,42 @@ export function SyncedVideoPlayer({
           <div className="text-white/50 text-xs">+10s</div>
         </div>
       </div>
+
+      {/* Next episode overlay */}
+      {showNextOverlay && hasNextEpisode && (
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30">
+          <p className="text-white text-lg mb-2">Próximo episódio em</p>
+          <div className="text-5xl font-bold text-primary mb-4 animate-pulse">5</div>
+          <p className="text-white/80 text-sm mb-4">Próximo episódio começará automaticamente</p>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (nextEpisodeTimerRef.current) {
+                  clearTimeout(nextEpisodeTimerRef.current);
+                }
+                setShowNextOverlay(false);
+              }}
+              className="text-white border-white/50 hover:bg-white/20"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (nextEpisodeTimerRef.current) {
+                  clearTimeout(nextEpisodeTimerRef.current);
+                }
+                setShowNextOverlay(false);
+                onNextEpisode?.();
+              }}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <SkipForward className="h-4 w-4 mr-2" />
+              Pular agora
+            </Button>
+          </div>
+        </div>
+      )}
       
       {/* Overlay badges */}
       <div className="absolute top-4 left-4 flex gap-2 z-10 pr-14">
