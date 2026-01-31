@@ -162,7 +162,8 @@ function AvatarDialog({ avatar, sectionId, onSave, isPending, trigger }: AvatarD
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = fileName;
+      // Store admin-uploaded avatars in the "library" folder (RLS policy requires this)
+      const filePath = `library/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
