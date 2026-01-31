@@ -167,6 +167,7 @@ const Admin = () => {
     duration_minutes: '',
     category_id: '',
     is_featured: false,
+    embed_url: '',
   });
 
   const [posterFile, setPosterFile] = useState<File | null>(null);
@@ -283,8 +284,10 @@ const Admin = () => {
         }
       }
 
-      // Upload video
-      if (videoFile) {
+      // Use embed URL if provided, otherwise upload video file
+      if (formData.embed_url) {
+        video_url = formData.embed_url;
+      } else if (videoFile) {
         toast.info('Enviando vídeo...');
         video_url = await uploadVideo(videoFile) || undefined;
         if (!video_url) {
@@ -318,6 +321,7 @@ const Admin = () => {
         duration_minutes: '',
         category_id: '',
         is_featured: false,
+        embed_url: '',
       });
       setPosterFile(null);
       setBannerFile(null);
@@ -636,9 +640,37 @@ const Admin = () => {
                   </div>
                 </div>
 
+                {/* Video URL (Embed) */}
+                <div>
+                  <Label htmlFor="embed_url">URL do Vídeo (Embed)</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Cole um link de embed (YouTube, Vimeo, Google Drive, etc.) ou URL direta do vídeo
+                  </p>
+                  <Input
+                    id="embed_url"
+                    value={formData.embed_url}
+                    onChange={(e) => setFormData(prev => ({ ...prev, embed_url: e.target.value }))}
+                    placeholder="https://www.youtube.com/embed/... ou https://drive.google.com/..."
+                    className="bg-secondary border-border"
+                  />
+                </div>
+
+                {/* Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">ou faça upload</span>
+                  </div>
+                </div>
+
                 {/* Video Upload */}
                 <div>
                   <Label>Arquivo de Vídeo</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Alternativamente, envie um arquivo de vídeo
+                  </p>
                   <div className="mt-2">
                     {videoFile ? (
                       <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
