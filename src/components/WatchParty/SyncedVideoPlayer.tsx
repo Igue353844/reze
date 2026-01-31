@@ -224,9 +224,19 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
         )}
       </div>
       
+      {/* Fullscreen button - always visible on mobile */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleFullscreen}
+        className="absolute top-4 right-4 z-20 text-white bg-black/50 hover:bg-black/70 h-10 w-10"
+      >
+        <Maximize className="h-6 w-6" />
+      </Button>
+
       {/* Controls overlay */}
       <div className={cn(
-        "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity",
+        "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 sm:p-4 transition-opacity",
         showControls ? "opacity-100" : "opacity-0"
       )}>
         {/* Progress bar */}
@@ -235,27 +245,28 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
           max={duration || 100}
           step={1}
           onValueChange={handleSeek}
-          className="mb-3"
+          className="mb-2 sm:mb-3"
         />
         
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-1">
+          {/* Left controls */}
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="ghost"
               size="icon"
               onClick={togglePlay}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 h-8 w-8 sm:h-10 sm:w-10"
             >
-              {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+              {isPlaying ? <Pause className="h-4 w-4 sm:h-5 sm:w-5" /> : <Play className="h-4 w-4 sm:h-5 sm:w-5" />}
             </Button>
             
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleMute}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 h-8 w-8 sm:h-10 sm:w-10"
             >
-              {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+              {isMuted ? <VolumeX className="h-4 w-4 sm:h-5 sm:w-5" /> : <Volume2 className="h-4 w-4 sm:h-5 sm:w-5" />}
             </Button>
             
             <Slider
@@ -263,38 +274,31 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
               max={1}
               step={0.1}
               onValueChange={handleVolumeChange}
-              className="w-20"
+              className="w-16 sm:w-20 hidden sm:flex"
             />
             
-            <span className="text-white text-sm">
+            <span className="text-white text-xs sm:text-sm whitespace-nowrap">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Badge variant={party.is_playing ? "default" : "secondary"} className="flex items-center gap-1">
-              {party.is_playing ? (
-                <>
-                  <Play className="h-3 w-3 fill-current" />
-                  Reproduzindo
-                </>
-              ) : (
-                <>
-                  <Pause className="h-3 w-3" />
-                  Pausado
-                </>
-              )}
-            </Badge>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleFullscreen}
-              className="text-white hover:bg-white/20"
-            >
-              <Maximize className="h-5 w-5" />
-            </Button>
-          </div>
+          {/* Right controls - status badge */}
+          <Badge 
+            variant={party.is_playing ? "default" : "secondary"} 
+            className="flex items-center gap-1 text-xs px-2 py-1"
+          >
+            {party.is_playing ? (
+              <>
+                <Play className="h-3 w-3 fill-current" />
+                <span className="hidden sm:inline">Reproduzindo</span>
+              </>
+            ) : (
+              <>
+                <Pause className="h-3 w-3" />
+                <span className="hidden sm:inline">Pausado</span>
+              </>
+            )}
+          </Badge>
         </div>
       </div>
     </div>
