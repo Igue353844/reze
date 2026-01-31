@@ -1,15 +1,15 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SyncedVideoPlayer } from '@/components/WatchParty/SyncedVideoPlayer';
 import { PartyChat } from '@/components/WatchParty/PartyChat';
 import { PartyParticipants } from '@/components/WatchParty/PartyParticipants';
-import { VoiceCallControls } from '@/components/WatchParty/VoiceCallControls';
+import { VideoCallControls } from '@/components/WatchParty/VideoCallControls';
+import { EmojiReactions } from '@/components/WatchParty/EmojiReactions';
 import { useWatchParty } from '@/hooks/useWatchParty';
-import { useVoiceCall } from '@/hooks/useVoiceCall';
+import { useVideoCall } from '@/hooks/useVideoCall';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { 
@@ -43,12 +43,16 @@ export default function WatchPartyPage() {
   const {
     isInCall,
     isMuted,
+    isVideoEnabled,
     isSpeaking,
-    participants: voiceParticipants,
+    participants: callParticipants,
+    remoteStreams,
     joinCall,
     leaveCall,
     toggleMute,
-  } = useVoiceCall(id);
+    toggleVideo,
+    setLocalVideoRef,
+  } = useVideoCall(id);
 
   const handleCopyCode = () => {
     if (party?.code) {
@@ -133,8 +137,8 @@ export default function WatchPartyPage() {
     return (
       <Layout>
         <div className="container py-8">
-          <Card>
-            <CardContent className="py-12 text-center">
+          <div className="bg-card border rounded-lg">
+            <div className="py-12 text-center">
               <XCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-xl font-semibold mb-2">Sala não encontrada</h2>
               <p className="text-muted-foreground mb-4">
@@ -143,8 +147,8 @@ export default function WatchPartyPage() {
               <Button onClick={() => navigate('/party')}>
                 Voltar
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </Layout>
     );
@@ -174,16 +178,23 @@ export default function WatchPartyPage() {
           
           {/* Actions row - scrollable on mobile */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-2 px-2 scrollbar-hide">
-            {/* Voice call controls */}
-            <VoiceCallControls
+            {/* Video/Voice call controls */}
+            <VideoCallControls
               isInCall={isInCall}
               isMuted={isMuted}
+              isVideoEnabled={isVideoEnabled}
               isSpeaking={isSpeaking}
-              participants={voiceParticipants}
+              participants={callParticipants}
+              remoteStreams={remoteStreams}
               onJoinCall={joinCall}
               onLeaveCall={leaveCall}
               onToggleMute={toggleMute}
+              onToggleVideo={toggleVideo}
+              setLocalVideoRef={setLocalVideoRef}
             />
+
+            {/* Emoji reactions */}
+            <EmojiReactions partyId={id || ''} />
 
             <div className="w-px h-6 bg-border shrink-0" />
 
