@@ -136,12 +136,37 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
     }
   };
 
-  const toggleFullscreen = () => {
-    if (containerRef.current) {
+  const toggleFullscreen = async () => {
+    const video = videoRef.current;
+    const container = containerRef.current;
+    
+    if (!container || !video) return;
+
+    try {
+      // Check if we're already in fullscreen
       if (document.fullscreenElement) {
-        document.exitFullscreen();
+        await document.exitFullscreen();
       } else {
-        containerRef.current.requestFullscreen();
+        // Try container fullscreen first (works on most browsers)
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if ((container as any).webkitRequestFullscreen) {
+          // Safari
+          await (container as any).webkitRequestFullscreen();
+        } else if ((video as any).webkitEnterFullscreen) {
+          // iOS Safari - needs to be on the video element
+          await (video as any).webkitEnterFullscreen();
+        }
+      }
+    } catch (error) {
+      console.error('Fullscreen error:', error);
+      // Fallback: try video element fullscreen for iOS
+      if ((video as any).webkitEnterFullscreen) {
+        try {
+          await (video as any).webkitEnterFullscreen();
+        } catch (e) {
+          console.error('Video fullscreen fallback error:', e);
+        }
       }
     }
   };
@@ -163,9 +188,10 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
   return (
     <div 
       ref={containerRef}
-      className="relative aspect-video bg-black rounded-lg overflow-hidden group"
+      className="relative aspect-video bg-black rounded-lg overflow-hidden group fullscreen:rounded-none"
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
+      onTouchStart={() => setShowControls(true)}
     >
       <video
         ref={videoRef}
@@ -174,6 +200,7 @@ export function SyncedVideoPlayer({ party, isHost, onPlaybackUpdate }: SyncedVid
         className="w-full h-full object-contain"
         onClick={togglePlay}
         playsInline
+        webkit-playsinline="true"
       />
       
       {/* Overlay badges */}
