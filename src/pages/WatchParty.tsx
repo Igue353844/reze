@@ -43,19 +43,11 @@ export default function WatchPartyPage() {
   const {
     isInCall,
     isMuted,
-    isVideoEnabled,
-    isScreenSharing,
     isSpeaking,
     participants: callParticipants,
-    remoteStreams,
-    screenShareStream,
-    remoteScreenShares,
     joinCall,
     leaveCall,
     toggleMute,
-    toggleVideo,
-    toggleScreenShare,
-    setLocalVideoRef,
   } = useVideoCall(id);
 
   const handleCopyCode = () => {
@@ -182,23 +174,15 @@ export default function WatchPartyPage() {
           
           {/* Actions row - scrollable on mobile */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-2 px-2 scrollbar-hide">
-            {/* Video/Voice call controls */}
+            {/* Voice call controls */}
             <VideoCallControls
               isInCall={isInCall}
               isMuted={isMuted}
-              isVideoEnabled={isVideoEnabled}
-              isScreenSharing={isScreenSharing}
               isSpeaking={isSpeaking}
               participants={callParticipants}
-              remoteStreams={remoteStreams}
-              screenShareStream={screenShareStream}
-              remoteScreenShares={remoteScreenShares}
               onJoinCall={joinCall}
               onLeaveCall={leaveCall}
               onToggleMute={toggleMute}
-              onToggleVideo={toggleVideo}
-              onToggleScreenShare={toggleScreenShare}
-              setLocalVideoRef={setLocalVideoRef}
             />
 
             {/* Emoji reactions */}
