@@ -137,7 +137,7 @@ export function SyncedVideoPlayer({
     };
   }, [isHost, party.current_time_seconds, party.is_playing]);
 
-  // Sync playback from host (for non-hosts)
+  // Sync playback from host (for non-hosts) with smoother sync
   useEffect(() => {
     if (isHost || !videoRef.current) return;
 
@@ -145,18 +145,36 @@ export function SyncedVideoPlayer({
     const serverTime = party.current_time_seconds;
     const timeDiff = Math.abs(video.currentTime - serverTime);
 
-    // Only sync if difference is more than 2 seconds
-    if (timeDiff > 2) {
-      setIsSyncing(true);
-      video.currentTime = serverTime;
-      setTimeout(() => setIsSyncing(false), 500);
-    }
-
-    // Sync play/pause state
+    // Sync play/pause state first (prevents fighting between states)
     if (party.is_playing && video.paused) {
       video.play().catch(console.error);
     } else if (!party.is_playing && !video.paused) {
       video.pause();
+    }
+
+    // Only do a hard sync if difference is more than 1 second (reduced from 2)
+    if (timeDiff > 1) {
+      setIsSyncing(true);
+      
+      // If playing, pause briefly to avoid buffering issues during seek
+      const wasPlaying = !video.paused;
+      if (wasPlaying) {
+        video.pause();
+      }
+      
+      video.currentTime = serverTime;
+      
+      // Resume playback after seeking if it was playing
+      if (wasPlaying && party.is_playing) {
+        // Small delay to let the seek complete
+        const playAfterSeek = () => {
+          video.play().catch(console.error);
+          video.removeEventListener('seeked', playAfterSeek);
+        };
+        video.addEventListener('seeked', playAfterSeek, { once: true });
+      }
+      
+      setTimeout(() => setIsSyncing(false), 300);
     }
   }, [party.current_time_seconds, party.is_playing, isHost]);
 
@@ -168,10 +186,10 @@ export function SyncedVideoPlayer({
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
       
-      // Host sends updates
+      // Host sends updates more frequently (every 1 second instead of 2)
       if (isHost) {
         const now = Date.now();
-        if (now - lastSyncTime.current >= 2000) {
+        if (now - lastSyncTime.current >= 1000) {
           lastSyncTime.current = now;
           onPlaybackUpdate(video.currentTime, !video.paused);
         }
