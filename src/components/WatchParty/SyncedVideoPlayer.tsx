@@ -109,6 +109,34 @@ export function SyncedVideoPlayer({
     setCurrentSubtitle(subtitle?.text || null);
   }, [currentTime, subtitles, subtitlesEnabled]);
 
+  // Initial sync for host when entering the room
+  useEffect(() => {
+    if (!isHost || !videoRef.current) return;
+    
+    const video = videoRef.current;
+    
+    // Sync host's player with party state on initial load
+    const handleCanPlay = () => {
+      if (party.current_time_seconds > 0 && video.currentTime === 0) {
+        video.currentTime = party.current_time_seconds;
+      }
+      if (party.is_playing && video.paused) {
+        video.play().catch(console.error);
+      }
+    };
+    
+    video.addEventListener('canplay', handleCanPlay);
+    
+    // Also check immediately if video is already ready
+    if (video.readyState >= 3) {
+      handleCanPlay();
+    }
+    
+    return () => {
+      video.removeEventListener('canplay', handleCanPlay);
+    };
+  }, [isHost, party.current_time_seconds, party.is_playing]);
+
   // Sync playback from host (for non-hosts)
   useEffect(() => {
     if (isHost || !videoRef.current) return;
