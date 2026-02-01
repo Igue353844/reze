@@ -10,6 +10,8 @@ export interface WatchParty {
   is_playing: boolean;
   created_at: string;
   updated_at: string;
+  custom_url?: string | null;
+  custom_title?: string | null;
   videos?: {
     id: string;
     title: string;
