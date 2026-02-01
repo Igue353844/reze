@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Info, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Video } from '@/types/video';
 
@@ -10,6 +10,8 @@ interface HeroBannerProps {
 
 export const HeroBanner = memo(function HeroBanner({ videos }: HeroBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [imageError, setImageError] = useState<Record<number, boolean>>({});
+  const [imageLoaded, setImageLoaded] = useState<Record<number, boolean>>({});
   const videosLength = videos.length;
 
   useEffect(() => {
@@ -21,6 +23,12 @@ export const HeroBanner = memo(function HeroBanner({ videos }: HeroBannerProps) 
 
     return () => clearInterval(interval);
   }, [videosLength]);
+
+  // Reset image states when videos change
+  useEffect(() => {
+    setImageError({});
+    setImageLoaded({});
+  }, [videos]);
 
   if (videos.length === 0) {
     return (
@@ -44,6 +52,8 @@ export const HeroBanner = memo(function HeroBanner({ videos }: HeroBannerProps) 
   }
 
   const currentVideo = videos[currentIndex];
+  const currentImageUrl = currentVideo.banner_url || currentVideo.poster_url;
+  const hasValidImage = currentImageUrl && !imageError[currentIndex];
 
   const goToSlide = useCallback((index: number) => {
     setCurrentIndex(index);
@@ -57,18 +67,43 @@ export const HeroBanner = memo(function HeroBanner({ videos }: HeroBannerProps) 
     setCurrentIndex((prev) => (prev + 1) % videosLength) ;
   }, [videosLength]);
 
+  const handleImageError = (index: number) => {
+    setImageError(prev => ({ ...prev, [index]: true }));
+  };
+
+  const handleImageLoad = (index: number) => {
+    setImageLoaded(prev => ({ ...prev, [index]: true }));
+  };
+
   return (
     <div className="relative h-[70vh] lg:h-[85vh] overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0">
-        {currentVideo.banner_url || currentVideo.poster_url ? (
-          <img
-            src={currentVideo.banner_url || currentVideo.poster_url || ''}
-            alt={currentVideo.title}
-            className="w-full h-full object-cover transition-transform duration-700"
-          />
+        {hasValidImage ? (
+          <>
+            {/* Loading skeleton */}
+            {!imageLoaded[currentIndex] && (
+              <div className="absolute inset-0 bg-secondary animate-pulse" />
+            )}
+            <img
+              key={currentIndex}
+              src={currentImageUrl || ''}
+              alt={currentVideo.title}
+              className={`w-full h-full object-cover transition-all duration-700 ${
+                imageLoaded[currentIndex] ? 'opacity-100' : 'opacity-0'
+              }`}
+              crossOrigin="anonymous"
+              onError={() => handleImageError(currentIndex)}
+              onLoad={() => handleImageLoad(currentIndex)}
+            />
+          </>
         ) : (
-          <div className="w-full h-full bg-secondary" />
+          <div className="w-full h-full bg-secondary flex items-center justify-center">
+            <div className="text-center">
+              <ImageOff className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Imagem não disponível</p>
+            </div>
+          </div>
         )}
         
         {/* Gradient Overlays */}

@@ -1,6 +1,6 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Clock } from 'lucide-react';
+import { Play, Clock, ImageOff } from 'lucide-react';
 import type { Video } from '@/types/video';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,9 @@ interface VideoCardProps {
 }
 
 export const VideoCard = memo(function VideoCard({ video, className }: VideoCardProps) {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   const formattedDuration = useMemo(() => {
     if (!video.duration_minutes) return null;
     const hours = Math.floor(video.duration_minutes / 60);
@@ -26,6 +29,14 @@ export const VideoCard = memo(function VideoCard({ video, className }: VideoCard
     }
   }, [video.type]);
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+  };
+
   return (
     <Link 
       to={`/watch/${video.slug}`}
@@ -37,16 +48,33 @@ export const VideoCard = memo(function VideoCard({ video, className }: VideoCard
     >
       {/* Poster Image */}
       <div className="aspect-[2/3] bg-secondary relative">
-        {video.poster_url ? (
-          <img
-            src={video.poster_url}
-            alt={video.title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
+        {video.poster_url && !imageError ? (
+          <>
+            {/* Skeleton loader while image loads */}
+            {!imageLoaded && (
+              <div className="absolute inset-0 bg-secondary animate-pulse flex items-center justify-center">
+                <Play className="w-8 h-8 text-muted-foreground opacity-50" />
+              </div>
+            )}
+            <img
+              src={video.poster_url}
+              alt={video.title}
+              className={cn(
+                "w-full h-full object-cover transition-opacity duration-300",
+                imageLoaded ? "opacity-100" : "opacity-0"
+              )}
+              loading="lazy"
+              crossOrigin="anonymous"
+              onError={handleImageError}
+              onLoad={handleImageLoad}
+            />
+          </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-secondary">
-            <Play className="w-12 h-12 text-muted-foreground" />
+          <div className="w-full h-full flex flex-col items-center justify-center bg-secondary gap-2">
+            <ImageOff className="w-10 h-10 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground text-center px-2 line-clamp-2">
+              {video.title}
+            </span>
           </div>
         )}
         

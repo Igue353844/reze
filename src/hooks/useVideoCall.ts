@@ -11,6 +11,8 @@ interface CallState {
   isSpeaking: boolean;
   participants: CallParticipant[];
   audioLevel: number;
+  // Add version counter to force re-renders when streams change
+  streamVersion: number;
 }
 
 interface CallParticipant {
@@ -32,7 +34,12 @@ export function useVideoCall(partyId?: string) {
     isSpeaking: false,
     participants: [],
     audioLevel: 0,
+    streamVersion: 0,
   });
+  
+  // Use state for remote streams to trigger re-renders
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [remoteScreenShares, setRemoteScreenShares] = useState<Map<string, MediaStream>>(new Map());
   
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -41,8 +48,6 @@ export function useVideoCall(partyId?: string) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
-  const screenShareStreamRef = useRef<Map<string, MediaStream>>(new Map());
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Set video container ref
@@ -60,13 +65,13 @@ export function useVideoCall(partyId?: string) {
 
   // Get remote streams
   const getRemoteStreams = useCallback(() => {
-    return remoteStreamsRef.current;
-  }, []);
+    return remoteStreams;
+  }, [remoteStreams]);
 
   // Get screen share streams
   const getScreenShareStreams = useCallback(() => {
-    return screenShareStreamRef.current;
-  }, []);
+    return remoteScreenShares;
+  }, [remoteScreenShares]);
   
   // Clean up function
   const cleanup = useCallback(() => {
@@ -93,8 +98,8 @@ export function useVideoCall(partyId?: string) {
     peerConnectionsRef.current.clear();
     
     // Clear remote streams
-    remoteStreamsRef.current.clear();
-    screenShareStreamRef.current.clear();
+    setRemoteStreams(new Map());
+    setRemoteScreenShares(new Map());
     
     // Unsubscribe from channel
     if (channelRef.current) {
@@ -203,9 +208,17 @@ export function useVideoCall(partyId?: string) {
             peerConnectionsRef.current.delete(key);
           }
           
-          remoteStreamsRef.current.delete(key);
-          screenShareStreamRef.current.delete(key);
-          setState(prev => ({ ...prev })); // Trigger re-render
+          setRemoteStreams(prev => {
+            const next = new Map(prev);
+            next.delete(key);
+            return next;
+          });
+          setRemoteScreenShares(prev => {
+            const next = new Map(prev);
+            next.delete(key);
+            return next;
+          });
+          setState(prev => ({ ...prev, streamVersion: prev.streamVersion + 1 })); // Trigger re-render
         })
         .on('broadcast', { event: 'signal' }, async ({ payload }) => {
           if (payload.targetId !== user.id) return;
@@ -304,11 +317,19 @@ export function useVideoCall(partyId?: string) {
         (event.track.label.includes('screen') || event.track.label.includes('window') || event.track.label.includes('monitor'));
       
       if (isScreenShare) {
-        screenShareStreamRef.current.set(peerId, stream);
+        setRemoteScreenShares(prev => {
+          const next = new Map(prev);
+          next.set(peerId, stream);
+          return next;
+        });
       } else {
-        remoteStreamsRef.current.set(peerId, stream);
+        setRemoteStreams(prev => {
+          const next = new Map(prev);
+          next.set(peerId, stream);
+          return next;
+        });
       }
-      setState(prev => ({ ...prev })); // Trigger re-render
+      setState(prev => ({ ...prev, streamVersion: prev.streamVersion + 1 })); // Trigger re-render
     };
     
     // Handle ICE candidates
@@ -350,6 +371,8 @@ export function useVideoCall(partyId?: string) {
   // Leave call
   const leaveCall = useCallback(async () => {
     cleanup();
+    setRemoteStreams(new Map());
+    setRemoteScreenShares(new Map());
     setState({
       isInCall: false,
       isMuted: false,
@@ -358,6 +381,7 @@ export function useVideoCall(partyId?: string) {
       isSpeaking: false,
       participants: [],
       audioLevel: 0,
+      streamVersion: 0,
     });
     toast.success('Saiu da chamada');
   }, [cleanup]);
@@ -569,9 +593,9 @@ export function useVideoCall(partyId?: string) {
     isSpeaking: state.isSpeaking,
     participants: state.participants,
     audioLevel: state.audioLevel,
-    remoteStreams: remoteStreamsRef.current,
+    remoteStreams,
     screenShareStream: screenStreamRef.current,
-    remoteScreenShares: screenShareStreamRef.current,
+    remoteScreenShares,
     joinCall,
     leaveCall,
     toggleMute,
