@@ -7,6 +7,7 @@ import type { WatchParty } from '@/types/watchParty';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import Hls from 'hls.js';
 
 interface Subtitle {
   start: number;
@@ -35,6 +36,7 @@ export function SyncedVideoPlayer({
 }: SyncedVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const lastSyncTime = useRef<number>(0);
   const lastTapTime = useRef<number>(0);
   const lastTapX = useRef<number>(0);
@@ -55,7 +57,66 @@ export function SyncedVideoPlayer({
   const [currentSubtitle, setCurrentSubtitle] = useState<string | null>(null);
   const [isLoadingSubtitles, setIsLoadingSubtitles] = useState(false);
 
-  const videoUrl = party.episodes?.video_url || party.videos?.video_url;
+  const videoUrl = party.custom_url || party.episodes?.video_url || party.videos?.video_url;
+  const isM3U8 = videoUrl?.endsWith('.m3u8') || videoUrl?.includes('.m3u8');
+
+  // Setup HLS for M3U8 streams
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoUrl) return;
+
+    // Cleanup previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (isM3U8 && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+      });
+      
+      hlsRef.current = hls;
+      
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error('HLS network error, attempting recovery...');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error('HLS media error, attempting recovery...');
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error('HLS fatal error:', data);
+              hls.destroy();
+              break;
+          }
+        }
+      });
+
+      hls.loadSource(videoUrl);
+      hls.attachMedia(video);
+    } else if (isM3U8 && video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari native HLS support
+      video.src = videoUrl;
+    } else if (!isM3U8) {
+      // Regular video file
+      video.src = videoUrl;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [videoUrl, isM3U8]);
 
   // Generate AI subtitles
   const generateSubtitles = useCallback(async () => {
@@ -401,7 +462,6 @@ export function SyncedVideoPlayer({
     >
       <video
         ref={videoRef}
-        src={videoUrl}
         poster={party.videos?.poster_url || undefined}
         className="w-full h-full object-contain"
         onClick={(e) => {

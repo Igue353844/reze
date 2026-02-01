@@ -223,7 +223,13 @@ export function useWatchParty(partyId?: string) {
 
   // Create party
   const createParty = useMutation({
-    mutationFn: async ({ name, videoId, episodeId }: { name: string; videoId?: string; episodeId?: string }) => {
+    mutationFn: async ({ name, videoId, episodeId, customUrl, customTitle }: { 
+      name: string; 
+      videoId?: string; 
+      episodeId?: string;
+      customUrl?: string;
+      customTitle?: string;
+    }) => {
       if (!user) throw new Error('Must be logged in');
       
       // Generate unique code
@@ -235,6 +241,8 @@ export function useWatchParty(partyId?: string) {
           host_id: user.id,
           video_id: videoId || null,
           episode_id: episodeId || null,
+          custom_url: customUrl || null,
+          custom_title: customTitle || null,
           name,
           code,
         })

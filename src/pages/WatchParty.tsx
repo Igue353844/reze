@@ -248,11 +248,16 @@ export default function WatchPartyPage() {
               autoPlayNext={true}
             />
             
-            {party.videos && (
+            {(party.videos || party.custom_title) && (
               <div className="mt-2 md:mt-4 px-1">
-                <h2 className="text-base md:text-lg font-semibold">{party.videos.title}</h2>
+                <h2 className="text-base md:text-lg font-semibold">
+                  {party.custom_title || party.videos?.title}
+                </h2>
                 {party.episodes && (
                   <p className="text-sm text-muted-foreground">{party.episodes.title}</p>
+                )}
+                {party.custom_url && (
+                  <p className="text-sm text-muted-foreground">Link M3U8 customizado</p>
                 )}
               </div>
             )}

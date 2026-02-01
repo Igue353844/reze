@@ -386,6 +386,8 @@ export type Database = {
           code: string
           created_at: string
           current_time_seconds: number
+          custom_title: string | null
+          custom_url: string | null
           episode_id: string | null
           host_id: string
           id: string
@@ -399,6 +401,8 @@ export type Database = {
           code: string
           created_at?: string
           current_time_seconds?: number
+          custom_title?: string | null
+          custom_url?: string | null
           episode_id?: string | null
           host_id: string
           id?: string
@@ -412,6 +416,8 @@ export type Database = {
           code?: string
           created_at?: string
           current_time_seconds?: number
+          custom_title?: string | null
+          custom_url?: string | null
           episode_id?: string | null
           host_id?: string
           id?: string
