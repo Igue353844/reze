@@ -7,6 +7,7 @@ import { CreatePartyDialog } from '@/components/WatchParty/CreatePartyDialog';
 import { JoinPartyDialog } from '@/components/WatchParty/JoinPartyDialog';
 import { useMyParties } from '@/hooks/useWatchParty';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 import { 
   Users, 
   Plus, 
@@ -14,15 +15,33 @@ import {
   Crown, 
   Film,
   ArrowRight,
-  Popcorn
+  Popcorn,
+  Trash2
 } from 'lucide-react';
 
 export default function WatchPartyLobby() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: myParties, isLoading } = useMyParties();
+  const { data: myParties, isLoading, deleteParty } = useMyParties();
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDeleteParty = async (partyId: string) => {
+    if (!confirm('Tem certeza que deseja apagar esta sala? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+    
+    setDeletingId(partyId);
+    try {
+      await deleteParty.mutateAsync(partyId);
+      toast.success('Sala apagada com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao apagar sala');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (!user) {
     return (
@@ -133,15 +152,26 @@ export default function WatchPartyLobby() {
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/party/${party.id}`)}
-                        className="gap-2"
-                      >
-                        Entrar
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/party/${party.id}`)}
+                          className="gap-2"
+                        >
+                          Entrar
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteParty(party.id)}
+                          disabled={deletingId === party.id}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
