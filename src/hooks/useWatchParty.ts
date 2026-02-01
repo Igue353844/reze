@@ -439,13 +439,23 @@ export function useMyParties() {
     mutationFn: async (partyId: string) => {
       if (!user) throw new Error('Must be logged in');
       
-      // Soft delete - just set the party as inactive
-      // Messages and participants remain for data integrity
+      // Delete all messages first
+      await supabase
+        .from('watch_party_messages')
+        .delete()
+        .eq('party_id', partyId);
+      
+      // Delete all participants
+      await supabase
+        .from('watch_party_participants')
+        .delete()
+        .eq('party_id', partyId);
+      
+      // Delete the party
       const { error } = await supabase
         .from('watch_parties')
-        .update({ is_active: false })
-        .eq('id', partyId)
-        .eq('host_id', user.id);
+        .delete()
+        .eq('id', partyId);
       
       if (error) throw error;
     },
