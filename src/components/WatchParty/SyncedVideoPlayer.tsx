@@ -47,6 +47,7 @@ export function SyncedVideoPlayer({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [seekIndicator, setSeekIndicator] = useState<'forward' | 'backward' | null>(null);
   const [showNextOverlay, setShowNextOverlay] = useState(false);
   const nextEpisodeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -70,6 +71,34 @@ export function SyncedVideoPlayer({
       }
     }, 3000);
   }, [isPlaying]);
+
+  // Track fullscreen state and handle auto-hide in fullscreen
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFs = !!document.fullscreenElement || 
+                   !!(document as any).webkitFullscreenElement ||
+                   !!(document as any).mozFullScreenElement ||
+                   !!(document as any).msFullscreenElement;
+      setIsFullscreen(isFs);
+      
+      // Reset controls timeout when entering/exiting fullscreen
+      if (isFs) {
+        resetControlsTimeout();
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, [resetControlsTimeout]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -471,7 +500,7 @@ export function SyncedVideoPlayer({
       className="relative aspect-video bg-black rounded-lg overflow-hidden group fullscreen:rounded-none"
       onMouseEnter={resetControlsTimeout}
       onMouseMove={resetControlsTimeout}
-      onMouseLeave={() => setShowControls(false)}
+      onMouseLeave={() => !isFullscreen && setShowControls(false)}
       onTouchStart={resetControlsTimeout}
       onTouchEnd={handleDoubleTap}
       onDoubleClick={(e) => {
