@@ -50,12 +50,35 @@ export function SyncedVideoPlayer({
   const [seekIndicator, setSeekIndicator] = useState<'forward' | 'backward' | null>(null);
   const [showNextOverlay, setShowNextOverlay] = useState(false);
   const nextEpisodeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Subtitle state
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [currentSubtitle, setCurrentSubtitle] = useState<string | null>(null);
   const [isLoadingSubtitles, setIsLoadingSubtitles] = useState(false);
+
+  // Auto-hide controls after 3 seconds of inactivity
+  const resetControlsTimeout = useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    setShowControls(true);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (isPlaying) {
+        setShowControls(false);
+      }
+    }, 3000);
+  }, [isPlaying]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const videoUrl = party.custom_url || party.episodes?.video_url || party.videos?.video_url;
   const isM3U8 = videoUrl?.endsWith('.m3u8') || videoUrl?.includes('.m3u8');
@@ -315,7 +338,8 @@ export function SyncedVideoPlayer({
   }, [isHost, onPlaybackUpdate, hasNextEpisode, onNextEpisode, autoPlayNext]);
 
   const togglePlay = () => {
-    if (!videoRef.current) return;
+    // Only host can control playback
+    if (!isHost || !videoRef.current) return;
     if (isPlaying) {
       videoRef.current.pause();
     } else {
@@ -324,7 +348,8 @@ export function SyncedVideoPlayer({
   };
 
   const seekBy = (seconds: number) => {
-    if (!videoRef.current) return;
+    // Only host can seek
+    if (!isHost || !videoRef.current) return;
     const newTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + seconds));
     videoRef.current.currentTime = newTime;
     
@@ -371,9 +396,9 @@ export function SyncedVideoPlayer({
   };
 
   const handleSeek = (value: number[]) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = value[0];
-    }
+    // Only host can seek
+    if (!isHost || !videoRef.current) return;
+    videoRef.current.currentTime = value[0];
   };
 
   const handleVolumeChange = (value: number[]) => {
@@ -444,12 +469,14 @@ export function SyncedVideoPlayer({
     <div 
       ref={containerRef}
       className="relative aspect-video bg-black rounded-lg overflow-hidden group fullscreen:rounded-none"
-      onMouseEnter={() => setShowControls(true)}
+      onMouseEnter={resetControlsTimeout}
+      onMouseMove={resetControlsTimeout}
       onMouseLeave={() => setShowControls(false)}
-      onTouchStart={() => setShowControls(true)}
+      onTouchStart={resetControlsTimeout}
       onTouchEnd={handleDoubleTap}
       onDoubleClick={(e) => {
-        // Desktop double-click support
+        // Desktop double-click support - only host can seek
+        if (!isHost) return;
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
         const clickX = e.clientX - rect.left;
@@ -463,11 +490,13 @@ export function SyncedVideoPlayer({
       <video
         ref={videoRef}
         poster={party.videos?.poster_url || undefined}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-contain cursor-pointer"
         onClick={(e) => {
-          // Only toggle play on single click, not double click
           e.stopPropagation();
-          togglePlay();
+          resetControlsTimeout();
+          if (isHost) {
+            togglePlay();
+          }
         }}
         playsInline
         webkit-playsinline="true"
@@ -599,7 +628,8 @@ export function SyncedVideoPlayer({
           max={duration || 100}
           step={1}
           onValueChange={handleSeek}
-          className="mb-2 sm:mb-3"
+          disabled={!isHost}
+          className={cn("mb-2 sm:mb-3", !isHost && "opacity-70 pointer-events-none")}
         />
         
         <div className="flex items-center justify-between gap-1">
@@ -609,7 +639,12 @@ export function SyncedVideoPlayer({
               variant="ghost"
               size="icon"
               onClick={togglePlay}
-              className="text-white hover:bg-white/20 h-8 w-8 sm:h-10 sm:w-10"
+              disabled={!isHost}
+              className={cn(
+                "text-white hover:bg-white/20 h-8 w-8 sm:h-10 sm:w-10",
+                !isHost && "opacity-50 cursor-not-allowed"
+              )}
+              title={isHost ? (isPlaying ? "Pausar" : "Reproduzir") : "Apenas o host pode controlar"}
             >
               {isPlaying ? <Pause className="h-4 w-4 sm:h-5 sm:w-5" /> : <Play className="h-4 w-4 sm:h-5 sm:w-5" />}
             </Button>
