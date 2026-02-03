@@ -8,6 +8,8 @@ import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ThemeSelectorCompact } from '@/components/ThemeSelectorCompact';
 import { ProfileSettings } from '@/components/ProfileSettings';
+import { ProfileSwitcher } from '@/components/ProfileSwitcher';
+import { useProfileContext } from '@/contexts/ProfileContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +24,7 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { user, isAdmin, signOut } = useAuth();
+  const { selectedProfile, clearProfile } = useProfileContext();
   const { isInstallable, isIOS, isStandalone } = usePWAInstall();
   const showInstallOption = (isInstallable || isIOS) && !isStandalone;
 
@@ -35,6 +38,7 @@ export function Navbar() {
   };
 
   const handleSignOut = async () => {
+    clearProfile();
     await signOut();
     navigate('/');
   };
@@ -135,15 +139,15 @@ export function Navbar() {
             {/* Color Theme Selector (only for logged in users) */}
             {user && <ThemeSelectorCompact />}
 
+            {/* Profile Switcher (show selected profile with quick switch) */}
+            {user && selectedProfile && <ProfileSwitcher compact />}
+
             {/* Auth / User Menu */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm" className="gap-2">
+                  <Button variant="secondary" size="icon" className="w-9 h-9">
                     <User className="w-4 h-4" />
-                    <span className="hidden sm:inline max-w-24 truncate">
-                      {user.email?.split('@')[0]}
-                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">

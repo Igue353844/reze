@@ -41,7 +41,7 @@ const AuthMobile = () => {
       if (isAdminRoute) {
         navigate('/admin');
       } else {
-        const from = location.state?.from || '/catalog';
+        const from = location.state?.from || '/profiles';
         navigate(from);
       }
     }
