@@ -95,8 +95,10 @@ export function useUserProfiles() {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user-profiles', user?.id] });
+      // Force refetch to ensure profiles are updated
+      queryClient.refetchQueries({ queryKey: ['user-profiles', user?.id] });
       toast.success('Perfil criado!');
     },
     onError: (error: Error) => {
@@ -115,22 +117,40 @@ export function useUserProfiles() {
     }) => {
       if (!user?.id) throw new Error('Not authenticated');
       
-      const updateData: Partial<UserProfile> = {};
+      const updateData: Record<string, unknown> = {};
       if (name !== undefined) updateData.name = name;
       if (avatarId !== undefined) updateData.avatar_id = avatarId;
       if (avatarUrl !== undefined) updateData.avatar_url = avatarUrl;
       if (isKids !== undefined) updateData.is_kids = isKids;
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
         .update(updateData)
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select()
+        .single();
       
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user-profiles', user?.id] });
+      queryClient.refetchQueries({ queryKey: ['user-profiles', user?.id] });
+      
+      // Update selected profile in localStorage if it was the one being updated
+      const stored = localStorage.getItem(SELECTED_PROFILE_KEY);
+      if (stored) {
+        try {
+          const selectedProfile = JSON.parse(stored);
+          if (selectedProfile.id === data.id) {
+            localStorage.setItem(SELECTED_PROFILE_KEY, JSON.stringify(data));
+          }
+        } catch {
+          // ignore
+        }
+      }
+      
       toast.success('Perfil atualizado!');
     },
     onError: () => {

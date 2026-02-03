@@ -157,20 +157,22 @@ export default function ProfileSelectMobile() {
             'flex flex-wrap justify-center gap-8 sm:gap-12',
             'max-w-4xl'
           )}>
-            {profiles?.map((profile, idx) => (
-              <ProfileCard
-                key={profile.id}
-                profile={profile}
-                onClick={() => handleSelectProfile(profile)}
-                isEditing={isEditing}
-                onEdit={() => handleEditProfile(profile)}
-                index={idx}
-                isFocused={focusedIndex === idx}
-              />
-            ))}
+            {profiles && profiles.length > 0 ? (
+              profiles.map((profile, idx) => (
+                <ProfileCard
+                  key={profile.id}
+                  profile={profile}
+                  onClick={() => handleSelectProfile(profile)}
+                  isEditing={isEditing}
+                  onEdit={() => handleEditProfile(profile)}
+                  index={idx}
+                  isFocused={focusedIndex === idx}
+                />
+              ))
+            ) : null}
 
-            {/* Add Profile Button */}
-            {canAddMore && !isEditing && (
+            {/* Add Profile Button - Always show when not editing */}
+            {!isEditing && (
               <AddProfileCard 
                 onClick={handleAddProfile}
                 index={profiles?.length || 0}
