@@ -12,18 +12,16 @@ import {
   Users,
   Wifi,
   WifiOff,
-  Shield
+  Shield,
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function DownloadApp() {
-  // Instructions for downloading from GitHub Actions
-  const instructions = `
-1. Exporte o projeto para o GitHub via "Export to GitHub"
-2. No GitHub, vá em "Actions" e aguarde o build completar
-3. Clique na execução mais recente e baixe o artefato "app-debug"
-4. Instale o APK no seu dispositivo Android
-  `.trim();
-
+  // Link para releases do GitHub - será atualizado automaticamente quando exportar
+  const githubReleasesUrl = 'https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest';
+  
   const features = [
     { icon: Play, text: 'Assista filmes e séries em HD' },
     { icon: Tv, text: 'Suporte a TV e tela cheia' },
@@ -33,8 +31,8 @@ export default function DownloadApp() {
     { icon: Shield, text: 'Seguro e privado' },
   ];
 
-  const handleOpenLovable = () => {
-    window.open('https://lovable.dev', '_blank');
+  const handleDownloadLatest = () => {
+    window.open(githubReleasesUrl, '_blank');
   };
 
   return (
@@ -64,32 +62,66 @@ export default function DownloadApp() {
             </div>
             <CardTitle className="text-2xl">RezeFlix Android App</CardTitle>
             <CardDescription>
-              Compilado automaticamente via GitHub Actions
+              APK gerado automaticamente a cada atualização
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" onClick={handleOpenLovable} className="gap-2 text-lg px-8">
-                <Github className="h-5 w-5" />
-                Exportar para GitHub
+              <Button size="lg" onClick={handleDownloadLatest} className="gap-2 text-lg px-8">
+                <Download className="h-5 w-5" />
+                Baixar APK Mais Recente
               </Button>
             </div>
             
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Primeiro acesso?</AlertTitle>
+              <AlertDescription>
+                Se o link de download não funcionar, o projeto ainda não foi exportado para o GitHub. 
+                Siga as instruções abaixo para configurar.
+              </AlertDescription>
+            </Alert>
+
             <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-              <p className="font-medium mb-2">📱 Como obter o APK:</p>
+              <p className="font-medium mb-2">📱 Como funciona:</p>
               <ol className="list-decimal list-inside space-y-2">
-                <li><strong>Exporte para GitHub</strong> - No Lovable, clique em "Export to GitHub"</li>
-                <li><strong>Aguarde o Build</strong> - O GitHub Actions irá compilar o APK automaticamente</li>
-                <li><strong>Baixe o APK</strong> - Vá em Actions → selecione a execução mais recente → baixe "app-debug"</li>
-                <li><strong>Instale no Android</strong> - Permita fontes desconhecidas e instale o APK</li>
+                <li>O APK é gerado <strong>automaticamente</strong> toda vez que o código é atualizado</li>
+                <li>Basta clicar em <strong>"Baixar APK"</strong> para baixar a versão mais recente</li>
+                <li>Instale no seu dispositivo Android e pronto!</li>
               </ol>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="bg-primary/10 rounded-lg p-4 text-sm">
-              <p className="font-medium mb-1 text-primary">💡 Dica:</p>
+        {/* Setup Instructions */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Github className="h-5 w-5" />
+              Configuração Inicial (apenas uma vez)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              Para ativar o download automático do APK, você precisa exportar o projeto para o GitHub:
+            </p>
+            <ol className="list-decimal list-inside space-y-3 text-sm">
+              <li className="p-3 bg-muted/30 rounded-lg">
+                <strong>Exporte para GitHub:</strong> No Lovable, vá em Configurações → GitHub → Conectar projeto
+              </li>
+              <li className="p-3 bg-muted/30 rounded-lg">
+                <strong>Aguarde o build:</strong> O GitHub Actions irá compilar o APK automaticamente (cerca de 5-10 minutos)
+              </li>
+              <li className="p-3 bg-muted/30 rounded-lg">
+                <strong>Acesse as Releases:</strong> Vá em seu repositório GitHub → Releases para baixar o APK
+              </li>
+            </ol>
+            
+            <div className="bg-primary/10 rounded-lg p-4 text-sm mt-4">
+              <p className="font-medium mb-1 text-primary">💡 Após a configuração:</p>
               <p className="text-muted-foreground">
-                O APK é gerado automaticamente toda vez que você faz push para o GitHub. 
-                Basta exportar seu projeto e aguardar alguns minutos para o build finalizar.
+                Toda vez que você fizer alterações no Lovable, um novo APK será gerado automaticamente 
+                e ficará disponível para download na página de Releases do GitHub.
               </p>
             </div>
           </CardContent>
@@ -140,7 +172,7 @@ export default function DownloadApp() {
         {/* Alternative - PWA */}
         <div className="mt-8 text-center">
           <p className="text-muted-foreground mb-2">
-            Prefere não instalar o APK?
+            Não quer baixar o APK?
           </p>
           <Button variant="link" onClick={() => window.location.href = '/install'}>
             Instale como App Web (PWA) →
