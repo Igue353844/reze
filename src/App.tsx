@@ -10,9 +10,11 @@ import Index from "./pages/Index";
 import IndexMobile from "./pages/IndexMobile";
 import Catalog from "./pages/Catalog";
 import Watch from "./pages/Watch";
+import WatchMobile from "./pages/WatchMobile";
 import WatchHistory from "./pages/WatchHistory";
 import Embed from "./pages/Embed";
 import LiveTV from "./pages/LiveTV";
+import LiveTVMobile from "./pages/LiveTVMobile";
 import Admin from "./pages/Admin";
 import AdminManagement from "./pages/AdminManagement";
 import Auth from "./pages/Auth";
@@ -34,6 +36,8 @@ const AppRoutes = () => {
   // Mobile/TV app uses specialized components
   const HomePage = isMobileApp ? IndexMobile : Index;
   const AuthPage = isMobileApp ? AuthMobile : Auth;
+  const WatchPage = isMobileApp ? WatchMobile : Watch;
+  const LiveTVPage = isMobileApp ? LiveTVMobile : LiveTV;
 
   return (
     <Routes>
@@ -42,8 +46,8 @@ const AppRoutes = () => {
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/admin" element={<AuthPage />} />
       <Route path="/embed/:slug" element={<Embed />} />
-      <Route path="/tv" element={<LiveTV />} />
-      <Route path="/tv/:slug" element={<LiveTV />} />
+      <Route path="/tv" element={<LiveTVPage />} />
+      <Route path="/tv/:slug" element={<LiveTVPage />} />
       <Route path="/install" element={<Install />} />
       <Route path="/download" element={<DownloadApp />} />
       <Route path="/party-test" element={<WatchPartyTest />} />
@@ -56,7 +60,7 @@ const AppRoutes = () => {
       } />
       <Route path="/watch/:slug" element={
         <ProtectedRoute>
-          <Watch />
+          <WatchPage />
         </ProtectedRoute>
       } />
       <Route path="/history" element={
