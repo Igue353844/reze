@@ -275,6 +275,14 @@ export function Navbar() {
                 Instalar App
               </Link>
             )}
+            <Link 
+              to="/download" 
+              className="block px-4 py-2 text-foreground hover:bg-secondary rounded-lg transition-colors"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <Download className="w-4 h-4 inline mr-2" />
+              Baixar APK Android
+            </Link>
             {!user && (
               <Link 
                 to="/auth" 

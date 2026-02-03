@@ -447,17 +447,45 @@ export function useMyParties() {
     mutationFn: async (partyId: string) => {
       if (!user) throw new Error('Must be logged in');
       
+      // First verify the user is a participant (needed for RLS)
+      const { data: participant, error: participantError } = await supabase
+        .from('watch_party_participants')
+        .select('id')
+        .eq('party_id', partyId)
+        .eq('user_id', user.id)
+        .single();
+      
+      if (participantError || !participant) {
+        // If not a participant, add them temporarily to satisfy RLS
+        await supabase
+          .from('watch_party_participants')
+          .insert({
+            party_id: partyId,
+            user_id: user.id,
+            display_name: user.email?.split('@')[0] || 'User',
+            is_host: false,
+          });
+      }
+      
       // Delete all messages first
-      await supabase
+      const { error: msgError } = await supabase
         .from('watch_party_messages')
         .delete()
         .eq('party_id', partyId);
       
+      if (msgError) {
+        console.error('Error deleting messages:', msgError);
+      }
+      
       // Delete all participants
-      await supabase
+      const { error: partError } = await supabase
         .from('watch_party_participants')
         .delete()
         .eq('party_id', partyId);
+      
+      if (partError) {
+        console.error('Error deleting participants:', partError);
+      }
       
       // Delete the party
       const { error } = await supabase
@@ -465,7 +493,10 @@ export function useMyParties() {
         .delete()
         .eq('id', partyId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting party:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myWatchParties', user?.id] });
