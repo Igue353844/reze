@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import WatchPartyLobby from "./pages/WatchPartyLobby";
 import WatchPartyPage from "./pages/WatchParty";
 import WatchPartyTest from "./pages/WatchPartyTest";
+import Install from "./pages/Install";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/embed/:slug" element={<Embed />} />
             <Route path="/tv" element={<LiveTV />} />
             <Route path="/tv/:slug" element={<LiveTV />} />
+            <Route path="/install" element={<Install />} />
             <Route path="/party-test" element={<WatchPartyTest />} />
             
             {/* Protected routes - require login */}

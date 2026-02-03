@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart, Users } from 'lucide-react';
+import { Search, Menu, X, Upload, Film, LogIn, LogOut, User, Radio, History, Heart, Users, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ThemeSelectorCompact } from '@/components/ThemeSelectorCompact';
 import { ProfileSettings } from '@/components/ProfileSettings';
@@ -21,6 +22,8 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const { user, isAdmin, signOut } = useAuth();
+  const { isInstallable, isIOS, isStandalone } = usePWAInstall();
+  const showInstallOption = (isInstallable || isIOS) && !isStandalone;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,6 +263,16 @@ export function Navbar() {
               >
                 <Upload className="w-4 h-4 inline mr-2" />
                 Painel Admin
+              </Link>
+            )}
+            {showInstallOption && (
+              <Link 
+                to="/install" 
+                className="block px-4 py-2 text-primary hover:bg-secondary rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Download className="w-4 h-4 inline mr-2" />
+                Instalar App
               </Link>
             )}
             {!user && (
