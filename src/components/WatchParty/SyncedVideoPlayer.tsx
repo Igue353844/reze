@@ -529,6 +529,9 @@ export function SyncedVideoPlayer({
         }}
         playsInline
         webkit-playsinline="true"
+        autoPlay={false}
+        muted={false}
+        preload="auto"
       />
 
       {/* AI Subtitles display */}
