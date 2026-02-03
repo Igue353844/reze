@@ -301,6 +301,50 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profiles: {
+        Row: {
+          avatar_id: string | null
+          avatar_url: string | null
+          created_at: string
+          display_order: number | null
+          id: string
+          is_kids: boolean | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_id?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_kids?: boolean | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_id?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_kids?: boolean | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_avatar_id_fkey"
+            columns: ["avatar_id"]
+            isOneToOne: false
+            referencedRelation: "avatars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
