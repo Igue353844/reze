@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { ProfileProvider } from "./contexts/ProfileContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { usePlatform } from "./hooks/usePlatform";
 import Index from "./pages/Index";
@@ -19,6 +20,7 @@ import Admin from "./pages/Admin";
 import AdminManagement from "./pages/AdminManagement";
 import Auth from "./pages/Auth";
 import AuthMobile from "./pages/AuthMobile";
+import ProfileSelect from "./pages/ProfileSelect";
 import NotFound from "./pages/NotFound";
 import WatchPartyLobby from "./pages/WatchPartyLobby";
 import WatchPartyPage from "./pages/WatchParty";
@@ -42,17 +44,26 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/" element={<HomePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/admin" element={<AuthPage />} />
       <Route path="/embed/:slug" element={<Embed />} />
-      <Route path="/tv" element={<LiveTVPage />} />
-      <Route path="/tv/:slug" element={<LiveTVPage />} />
       <Route path="/install" element={<Install />} />
       <Route path="/download" element={<DownloadApp />} />
       <Route path="/party-test" element={<WatchPartyTest />} />
       
-      {/* Protected routes - require login */}
+      {/* Profile selection - requires login but not profile */}
+      <Route path="/profiles" element={
+        <ProtectedRoute requireProfile={false}>
+          <ProfileSelect />
+        </ProtectedRoute>
+      } />
+      
+      {/* Protected routes - require login and profile */}
+      <Route path="/" element={
+        <ProtectedRoute>
+          <HomePage />
+        </ProtectedRoute>
+      } />
       <Route path="/catalog" element={
         <ProtectedRoute>
           <Catalog />
@@ -66,6 +77,16 @@ const AppRoutes = () => {
       <Route path="/history" element={
         <ProtectedRoute>
           <WatchHistory />
+        </ProtectedRoute>
+      } />
+      <Route path="/tv" element={
+        <ProtectedRoute>
+          <LiveTVPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/tv/:slug" element={
+        <ProtectedRoute>
+          <LiveTVPage />
         </ProtectedRoute>
       } />
       <Route path="/party" element={
@@ -101,11 +122,13 @@ const App = () => (
   <ThemeProvider defaultTheme="dark" storageKey="streamflix-theme">
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <ProfileProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </ProfileProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </ThemeProvider>
