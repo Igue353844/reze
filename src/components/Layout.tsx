@@ -1,5 +1,6 @@
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
+import { PWAInstallBanner } from './PWAInstallBanner';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ export function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <Footer />
+      <PWAInstallBanner />
     </div>
   );
 }
