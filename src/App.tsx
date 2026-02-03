@@ -21,6 +21,7 @@ import AdminManagement from "./pages/AdminManagement";
 import Auth from "./pages/Auth";
 import AuthMobile from "./pages/AuthMobile";
 import ProfileSelect from "./pages/ProfileSelect";
+import ProfileSelectMobile from "./pages/ProfileSelectMobile";
 import NotFound from "./pages/NotFound";
 import WatchPartyLobby from "./pages/WatchPartyLobby";
 import WatchPartyPage from "./pages/WatchParty";
@@ -40,6 +41,7 @@ const AppRoutes = () => {
   const AuthPage = isMobileApp ? AuthMobile : Auth;
   const WatchPage = isMobileApp ? WatchMobile : Watch;
   const LiveTVPage = isMobileApp ? LiveTVMobile : LiveTV;
+  const ProfileSelectPage = isMobileApp ? ProfileSelectMobile : ProfileSelect;
 
   return (
     <Routes>
@@ -54,7 +56,7 @@ const AppRoutes = () => {
       {/* Profile selection - requires login but not profile */}
       <Route path="/profiles" element={
         <ProtectedRoute requireProfile={false}>
-          <ProfileSelect />
+          <ProfileSelectPage />
         </ProtectedRoute>
       } />
       

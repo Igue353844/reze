@@ -50,22 +50,32 @@ export default function ProfileSelect() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-hidden">
+      {/* Animated background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background" />
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/5 blur-3xl rounded-full animate-pulse" />
+        <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-accent/5 blur-3xl rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+
       {/* Header */}
-      <header className="p-6">
+      <header className="relative z-10 p-6 animate-fade-in">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
           RezeFlix
         </h1>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
-        <h2 className="text-3xl sm:text-4xl font-medium text-white mb-2">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pb-20">
+        <h2 className={cn(
+          'text-3xl sm:text-4xl font-medium text-white mb-2',
+          'animate-fade-in'
+        )} style={{ animationDelay: '100ms' }}>
           Quem está assistindo?
         </h2>
         
         {isEditing && (
-          <p className="text-muted-foreground mb-8">
+          <p className="text-muted-foreground mb-8 animate-fade-in">
             Toque em um perfil para editar
           </p>
         )}
@@ -75,30 +85,34 @@ export default function ProfileSelect() {
           'flex flex-wrap justify-center gap-6 sm:gap-8 mt-8',
           'max-w-3xl'
         )}>
-          {profiles?.map((profile) => (
+          {profiles?.map((profile, idx) => (
             <ProfileCard
               key={profile.id}
               profile={profile}
               onClick={() => handleSelectProfile(profile)}
               isEditing={isEditing}
               onEdit={() => handleEditProfile(profile)}
+              index={idx}
             />
           ))}
 
           {/* Add Profile Button */}
           {canAddMore && !isEditing && (
-            <AddProfileCard onClick={handleAddProfile} />
+            <AddProfileCard 
+              onClick={handleAddProfile}
+              index={profiles?.length || 0}
+            />
           )}
         </div>
 
         {/* Manage Profiles Button */}
-        <div className="mt-12">
+        <div className="mt-12 animate-fade-in" style={{ animationDelay: '500ms' }}>
           {isEditing ? (
             <Button 
               variant="outline" 
               size="lg"
               onClick={() => setIsEditing(false)}
-              className="px-8"
+              className="px-8 transition-all duration-300 hover:scale-105"
             >
               Concluído
             </Button>
@@ -107,7 +121,7 @@ export default function ProfileSelect() {
               variant="outline" 
               size="lg"
               onClick={() => setIsEditing(true)}
-              className="px-8"
+              className="px-8 transition-all duration-300 hover:scale-105 hover:border-white"
             >
               <Pencil className="w-4 h-4 mr-2" />
               Gerenciar Perfis
