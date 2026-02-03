@@ -19,8 +19,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function DownloadApp() {
-  // Link para releases do GitHub - será atualizado automaticamente quando exportar
-  const githubReleasesUrl = 'https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest';
+  // Link para releases do GitHub
+  const githubReleasesUrl = 'https://github.com/Igue353844/reze/releases/latest';
   
   const features = [
     { icon: Play, text: 'Assista filmes e séries em HD' },
