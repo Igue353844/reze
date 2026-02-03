@@ -1,7 +1,7 @@
 {
   "name": "RezeFlix - Sua Plataforma de Streaming",
   "short_name": "RezeFlix",
-  "description": "Assista filmes, séries e trailers na RezeFlix",
+  "description": "Assista filmes, séries e trailers no RezeFlix",
   "theme_color": "#7c3aed",
   "background_color": "#0a0a0a",
   "display": "standalone",

@@ -43,7 +43,7 @@ export default function DownloadApp() {
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-primary/10 mb-6">
             <Smartphone className="h-12 w-12 text-primary" />
           </div>
-          <h1 className="text-4xl font-bold mb-4">Baixar RezeFlix para Android</h1>
+          <h1 className="text-4xl font-bold mb-4">Baixar RezeFlix Mobile</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Tenha a melhor experiência de streaming diretamente no seu dispositivo Android
           </p>
@@ -60,7 +60,7 @@ export default function DownloadApp() {
                 Android APK
               </Badge>
             </div>
-            <CardTitle className="text-2xl">RezeFlix Android App</CardTitle>
+            <CardTitle className="text-2xl">RezeFlix Mobile</CardTitle>
             <CardDescription>
               APK gerado automaticamente a cada atualização
             </CardDescription>
