@@ -4,6 +4,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* TV-specific focus styles */
+.tv-layout [data-focusable="true"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.8), 0 0 20px hsl(var(--primary) / 0.4);
+  transform: scale(1.02);
+}
+
+/* Smooth focus transitions for TV */
+.tv-layout [data-focusable="true"] {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
 @layer base {
   :root {
     --background: 250 100% 98%;
