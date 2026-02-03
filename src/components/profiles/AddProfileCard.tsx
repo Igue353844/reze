@@ -13,12 +13,11 @@ export function AddProfileCard({ onClick, className, index = 0, isFocused }: Add
     <div 
       className={cn(
         'group flex flex-col items-center gap-3 cursor-pointer',
-        'animate-fade-in opacity-0',
+        'animate-fade-in',
         className
       )}
       style={{ 
         animationDelay: `${index * 100}ms`,
-        animationFillMode: 'forwards'
       }}
       onClick={onClick}
       data-focusable="true"
