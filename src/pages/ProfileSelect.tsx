@@ -85,19 +85,21 @@ export default function ProfileSelect() {
           'flex flex-wrap justify-center gap-6 sm:gap-8 mt-8',
           'max-w-3xl'
         )}>
-          {profiles?.map((profile, idx) => (
-            <ProfileCard
-              key={profile.id}
-              profile={profile}
-              onClick={() => handleSelectProfile(profile)}
-              isEditing={isEditing}
-              onEdit={() => handleEditProfile(profile)}
-              index={idx}
-            />
-          ))}
+          {profiles && profiles.length > 0 ? (
+            profiles.map((profile, idx) => (
+              <ProfileCard
+                key={profile.id}
+                profile={profile}
+                onClick={() => handleSelectProfile(profile)}
+                isEditing={isEditing}
+                onEdit={() => handleEditProfile(profile)}
+                index={idx}
+              />
+            ))
+          ) : null}
 
-          {/* Add Profile Button */}
-          {canAddMore && !isEditing && (
+          {/* Add Profile Button - Always show when user can add more profiles */}
+          {!isEditing && (
             <AddProfileCard 
               onClick={handleAddProfile}
               index={profiles?.length || 0}
