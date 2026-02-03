@@ -76,9 +76,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ env.APK_VERSION }}
-          name: RezeFlix APK - Build ${{ env.APK_VERSION }}
+          name: RezeFlix Mobile - Build ${{ env.APK_VERSION }}
           body: |
-            ## 📱 RezeFlix Android APK
+            ## 📱 RezeFlix Mobile APK
             
             **Build automático gerado em:** ${{ github.event.head_commit.timestamp }}
             
@@ -91,6 +91,9 @@ jobs:
             ### Requisitos:
             - Android 7.0 ou superior
             - 2GB RAM mínimo
+            
+            ### ⚠️ Importante:
+            Este APK contém o app completo embutido (não precisa de internet para a interface).
           files: android/app/build/outputs/apk/debug/RezeFlix-*.apk
           draft: false
           prerelease: false
