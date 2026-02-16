@@ -65,6 +65,20 @@ export function useUpload() {
     setProgress(null);
   }, []);
 
+  const getAccessToken = useCallback(async (): Promise<string> => {
+    // Always get a fresh session to avoid expired tokens on long uploads
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session?.access_token) {
+      // Try to refresh the session
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData.session?.access_token) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+      return refreshData.session.access_token;
+    }
+    return session.access_token;
+  }, []);
+
   const uploadWithTus = useCallback(async (
     file: File,
     bucket: 'videos' | 'posters',
@@ -72,10 +86,7 @@ export function useUpload() {
   ): Promise<string | null> => {
     return new Promise(async (resolve, reject) => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          throw new Error('Não autenticado');
-        }
+        const accessToken = await getAccessToken();
 
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -87,12 +98,15 @@ export function useUpload() {
         speedHistoryRef.current = [];
         lastProgressRef.current = { time: Date.now(), loaded: 0 };
 
+        // Track token refresh interval
+        let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
         const upload = new tus.Upload(file, {
           endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
-          retryDelays: [0, 1000, 3000, 5000, 10000],
-          chunkSize: 50 * 1024 * 1024, // 50MB chunks for faster upload
+          retryDelays: [0, 1000, 3000, 5000, 10000, 15000, 30000],
+          chunkSize: 6 * 1024 * 1024, // 6MB chunks - more reliable for large files
           headers: {
-            authorization: `Bearer ${session.access_token}`,
+            authorization: `Bearer ${accessToken}`,
             apikey: supabaseKey,
             'x-upsert': 'false',
           },
@@ -104,22 +118,42 @@ export function useUpload() {
             contentType: file.type,
             cacheControl: '3600',
           },
+          onBeforeRequest: async (req) => {
+            // Refresh token before each chunk to prevent expiration
+            try {
+              const freshToken = await getAccessToken();
+              req.setHeader('Authorization', `Bearer ${freshToken}`);
+            } catch (e) {
+              console.warn('Token refresh failed, using existing token');
+            }
+          },
           onError: (err) => {
             console.error('TUS upload error:', err);
-            setError(err.message);
+            if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
+            
+            const errorMsg = err.message || 'Erro no upload';
+            // Provide user-friendly error messages
+            if (errorMsg.includes('exceeded') || errorMsg.includes('quota') || errorMsg.includes('limit')) {
+              setError('Limite de armazenamento excedido. Considere usar links do Google Drive.');
+            } else if (errorMsg.includes('unauthorized') || errorMsg.includes('401') || errorMsg.includes('JWT')) {
+              setError('Sessão expirada. Recarregue a página e tente novamente.');
+            } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
+              setError('Erro de conexão. Verifique sua internet e tente novamente.');
+            } else {
+              setError(errorMsg);
+            }
             setIsUploading(false);
             reject(err);
           },
           onProgress: (bytesUploaded, bytesTotal) => {
             const now = Date.now();
-            const timeDiff = (now - lastProgressRef.current.time) / 1000; // seconds
+            const timeDiff = (now - lastProgressRef.current.time) / 1000;
             const bytesDiff = bytesUploaded - lastProgressRef.current.loaded;
             
-            if (timeDiff > 0.5) { // Update speed every 0.5 seconds
+            if (timeDiff > 0.5) {
               const currentSpeed = bytesDiff / timeDiff;
               speedHistoryRef.current.push(currentSpeed);
               
-              // Keep only last 10 speed measurements for average
               if (speedHistoryRef.current.length > 10) {
                 speedHistoryRef.current.shift();
               }
@@ -127,7 +161,6 @@ export function useUpload() {
               lastProgressRef.current = { time: now, loaded: bytesUploaded };
             }
 
-            // Calculate average speed
             const avgSpeed = speedHistoryRef.current.length > 0
               ? speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length
               : 0;
@@ -146,6 +179,8 @@ export function useUpload() {
             });
           },
           onSuccess: () => {
+            if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
+            
             setProgress({
               loaded: file.size,
               total: file.size,
@@ -180,7 +215,7 @@ export function useUpload() {
         reject(err);
       }
     });
-  }, []);
+  }, [getAccessToken]);
 
   const uploadFile = useCallback(async (
     file: File,
