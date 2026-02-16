@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Film, Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft, Phone, KeyRound } from 'lucide-react';
+import { Film, Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,21 +10,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { lovable } from '@/integrations/lovable/index';
-import { EmailOTPVerification } from '@/components/auth/EmailOTPVerification';
-import { PhoneAuth } from '@/components/auth/PhoneAuth';
 
 const authSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
 });
 
-type AuthMethod = 'password' | 'email-otp' | 'phone';
-
 const Auth = () => {
   const location = useLocation();
   const isAdminRoute = location.pathname === '/auth/admin';
-  
-  const [authMethod, setAuthMethod] = useState<AuthMethod>('password');
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -121,14 +115,6 @@ const Auth = () => {
     }
   };
 
-  const handleOTPSuccess = () => {
-    if (isAdminRoute) {
-      navigate('/admin');
-    } else {
-      navigate('/profiles');
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -138,27 +124,6 @@ const Auth = () => {
   }
 
   const renderAuthContent = () => {
-    // Email OTP method
-    if (authMethod === 'email-otp') {
-      return (
-        <EmailOTPVerification 
-          onBack={() => setAuthMethod('password')} 
-          onSuccess={handleOTPSuccess}
-        />
-      );
-    }
-
-    // Phone auth method
-    if (authMethod === 'phone') {
-      return (
-        <PhoneAuth 
-          onBack={() => setAuthMethod('password')} 
-          onSuccess={handleOTPSuccess}
-        />
-      );
-    }
-
-    // Default password method
     return (
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Email */}
@@ -228,7 +193,7 @@ const Auth = () => {
           )}
         </Button>
 
-        {/* Divider - Other methods */}
+        {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <Separator className="w-full" />
@@ -236,32 +201,6 @@ const Auth = () => {
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-card px-2 text-muted-foreground">ou entre com</span>
           </div>
-        </div>
-
-        {/* Alternative Auth Methods */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setAuthMethod('email-otp')}
-            disabled={isSubmitting}
-            className="gap-2"
-          >
-            <KeyRound className="w-4 h-4" />
-            Código Email
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setAuthMethod('phone')}
-            disabled={isSubmitting}
-            className="gap-2"
-          >
-            <Phone className="w-4 h-4" />
-            Telefone
-          </Button>
         </div>
 
         {/* Google Sign In */}
@@ -359,19 +298,12 @@ const Auth = () => {
         <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-border">
           <CardHeader className="text-center">
             <CardTitle className="font-display text-2xl tracking-wide">
-              {authMethod === 'password' 
-                ? (isLogin ? 'BEM-VINDO DE VOLTA' : 'CRIAR CONTA')
-                : authMethod === 'email-otp'
-                ? 'VERIFICAÇÃO POR EMAIL'
-                : 'VERIFICAÇÃO POR TELEFONE'
-              }
+              {isLogin ? 'BEM-VINDO DE VOLTA' : 'CRIAR CONTA'}
             </CardTitle>
             <CardDescription>
-              {authMethod === 'password'
-                ? (isLogin
-                    ? 'Entre para acessar o catálogo completo'
-                    : 'Crie sua conta para começar a assistir')
-                : 'Receba um código de verificação'
+              {isLogin
+                ? 'Entre para acessar o catálogo completo'
+                : 'Crie sua conta para começar a assistir'
               }
             </CardDescription>
           </CardHeader>
