@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Hls from 'hls.js';
 import { 
   Play, 
   Pause, 
@@ -13,7 +14,8 @@ import {
   Gauge,
   PictureInPicture2,
   Captions,
-  CaptionsOff
+  CaptionsOff,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -92,11 +94,87 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles, videoId,
 
   const availableQualities = qualities && qualities.length > 0 ? qualities : defaultQualities;
 
+  // HLS instance ref
+  const hlsRef = useRef<Hls | null>(null);
+
+  // Check if URL is an HLS stream
+  const isHlsUrl = (url: string) => /\.m3u8($|\?)/i.test(url);
+
   // Update source when prop changes
   useEffect(() => {
     setCurrentSrc(src);
     setCurrentQuality('auto');
   }, [src]);
+
+  // Initialize HLS or direct video source
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !currentSrc) return;
+
+    // Destroy previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (isHlsUrl(currentSrc) && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        maxBufferLength: 60,           // Buffer up to 60s ahead
+        maxMaxBufferLength: 120,       // Allow up to 120s buffer
+        maxBufferSize: 60 * 1000 * 1000, // 60MB buffer
+        maxBufferHole: 0.5,
+        highBufferWatchdogPeriod: 3,
+        startLevel: -1,                // Auto quality selection
+        abrEwmaDefaultEstimate: 5000000, // Start assuming 5mbps
+        progressive: true,
+        backBufferLength: 30,          // Keep 30s behind
+      });
+
+      hls.loadSource(currentSrc);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setIsLoading(false);
+      });
+
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.warn('HLS network error, attempting recovery...');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.warn('HLS media error, attempting recovery...');
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error('Fatal HLS error:', data);
+              // Fallback: try direct src
+              video.src = currentSrc;
+              break;
+          }
+        }
+      });
+
+      hlsRef.current = hls;
+    } else if (isHlsUrl(currentSrc) && video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari native HLS
+      video.src = currentSrc;
+    } else {
+      // Direct video file (mp4, webm, etc.)
+      video.src = currentSrc;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [currentSrc]);
 
   // Track if initial progress has been applied
   const initialProgressAppliedRef = useRef(false);
@@ -482,7 +560,6 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles, videoId,
     >
       <video
         ref={videoRef}
-        src={currentSrc}
         poster={poster}
         className="w-full h-full object-contain"
         style={{ filter: `brightness(${brightness}%)` }}
@@ -529,7 +606,7 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles, videoId,
       {/* Loading Spinner */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <Loader2 className="w-12 h-12 text-primary animate-spin" />
         </div>
       )}
 
