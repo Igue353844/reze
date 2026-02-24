@@ -83,90 +83,103 @@ export function useB2Upload() {
       remainingTimeFormatted: 'Calculando...',
     });
 
+    const MAX_RETRIES = 3;
+
     try {
-      // 1. Get presigned URL (CORS is auto-configured server-side)
-      const { url, key } = await getPresignedUploadUrl(file.name, file.type, folder);
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const { url, key } = await getPresignedUploadUrl(file.name, file.type, folder);
 
-      // 2. Upload directly to B2 via presigned URL with XHR for progress
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
+          const abortController = new AbortController();
+          abortControllerRef.current = abortController;
 
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const startTime = Date.now();
-        let lastLoaded = 0;
-        let lastTime = startTime;
-        const speedHistory: number[] = [];
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            let lastLoaded = 0;
+            let lastTime = Date.now();
+            const speedHistory: number[] = [];
 
-        xhr.upload.addEventListener('progress', (e) => {
-          if (!e.lengthComputable) return;
-          const now = Date.now();
-          const timeDiff = (now - lastTime) / 1000;
-          const bytesDiff = e.loaded - lastLoaded;
+            xhr.upload.addEventListener('progress', (e) => {
+              if (!e.lengthComputable) return;
+              const now = Date.now();
+              const timeDiff = (now - lastTime) / 1000;
+              const bytesDiff = e.loaded - lastLoaded;
 
-          if (timeDiff > 0.5) {
-            const currentSpeed = bytesDiff / timeDiff;
-            speedHistory.push(currentSpeed);
-            if (speedHistory.length > 10) speedHistory.shift();
-            lastLoaded = e.loaded;
-            lastTime = now;
-          }
+              if (timeDiff > 0.5) {
+                const currentSpeed = bytesDiff / timeDiff;
+                speedHistory.push(currentSpeed);
+                if (speedHistory.length > 10) speedHistory.shift();
+                lastLoaded = e.loaded;
+                lastTime = now;
+              }
 
-          const avgSpeed = speedHistory.length > 0
-            ? speedHistory.reduce((a, b) => a + b, 0) / speedHistory.length
-            : 0;
-          const remaining = e.total - e.loaded;
-          const remainingTime = avgSpeed > 0 ? remaining / avgSpeed : 0;
+              const avgSpeed = speedHistory.length > 0
+                ? speedHistory.reduce((a, b) => a + b, 0) / speedHistory.length
+                : 0;
+              const remaining = e.total - e.loaded;
+              const remainingTime = avgSpeed > 0 ? remaining / avgSpeed : 0;
 
-          setProgress({
-            loaded: e.loaded,
-            total: e.total,
-            percentage: Math.round((e.loaded / e.total) * 100),
-            speed: avgSpeed,
-            speedFormatted: formatSpeed(avgSpeed),
-            remainingTime,
-            remainingTimeFormatted: formatTime(remainingTime),
-          });
-        });
-
-        xhr.addEventListener('load', () => {
-          console.log('B2 upload response:', xhr.status, xhr.responseText?.substring(0, 200));
-          if (xhr.status >= 200 && xhr.status < 300) {
-            setProgress({
-              loaded: file.size,
-              total: file.size,
-              percentage: 100,
-              speed: 0,
-              speedFormatted: '0 B/s',
-              remainingTime: 0,
-              remainingTimeFormatted: '0s',
+              setProgress({
+                loaded: e.loaded,
+                total: e.total,
+                percentage: Math.round((e.loaded / e.total) * 100),
+                speed: avgSpeed,
+                speedFormatted: formatSpeed(avgSpeed),
+                remainingTime,
+                remainingTimeFormatted: formatTime(remainingTime),
+              });
             });
-            resolve();
-          } else {
-            reject(new Error(`Upload falhou (status ${xhr.status})`));
+
+            xhr.addEventListener('load', () => {
+              console.log('B2 upload response:', xhr.status, xhr.responseText?.substring(0, 200));
+              if (xhr.status >= 200 && xhr.status < 300) {
+                setProgress({
+                  loaded: file.size,
+                  total: file.size,
+                  percentage: 100,
+                  speed: 0,
+                  speedFormatted: '0 B/s',
+                  remainingTime: 0,
+                  remainingTimeFormatted: '0s',
+                });
+                resolve();
+              } else if (xhr.status === 500 || xhr.status === 503) {
+                reject(new Error(`__RETRY__:B2 retornou erro ${xhr.status}`));
+              } else {
+                reject(new Error(`Upload falhou (status ${xhr.status})`));
+              }
+            });
+
+            xhr.addEventListener('error', () => {
+              reject(new Error('__RETRY__:Erro de conexão durante upload'));
+            });
+            xhr.addEventListener('abort', () => reject(new Error('Upload cancelado')));
+
+            abortController.signal.addEventListener('abort', () => xhr.abort());
+
+            xhr.open('PUT', url);
+            xhr.setRequestHeader('Content-Type', file.type);
+            xhr.send(file);
+          });
+
+          return { key };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Upload falhou';
+          if (message === 'Upload cancelado') {
+            return null;
           }
-        });
-
-        xhr.addEventListener('error', (e) => {
-          console.error('B2 XHR error event:', e);
-          reject(new Error('Erro de conexão durante upload. Verifique sua internet e tente novamente.'));
-        });
-        xhr.addEventListener('abort', () => reject(new Error('Upload cancelado')));
-
-        // Listen for abort
-        abortController.signal.addEventListener('abort', () => xhr.abort());
-
-        xhr.open('PUT', url);
-        xhr.setRequestHeader('Content-Type', file.type);
-        xhr.send(file);
-      });
-
-      return { key };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Upload falhou';
-      if (message !== 'Upload cancelado') {
-        setError(message);
+          if (message.startsWith('__RETRY__') && attempt < MAX_RETRIES) {
+            console.warn(`B2 upload attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${attempt * 2}s...`);
+            setProgress(prev => prev ? { ...prev, remainingTimeFormatted: `Tentativa ${attempt + 1}/${MAX_RETRIES}...` } : prev);
+            await new Promise(r => setTimeout(r, attempt * 2000));
+            continue;
+          }
+          setError(message.replace('__RETRY__:', ''));
+          return null;
+        }
       }
+
+      setError('Upload falhou após múltiplas tentativas');
       return null;
     } finally {
       setIsUploading(false);
