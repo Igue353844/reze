@@ -61,10 +61,6 @@ async function generatePresignedUrl(params: S3PresignParams): Promise<string> {
     "X-Amz-SignedHeaders": "host",
   };
 
-  if (contentType && method === "PUT") {
-    queryParams["Content-Type"] = contentType;
-  }
-
   const sortedKeys = Object.keys(queryParams).sort();
   const canonicalQueryString = sortedKeys
     .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(queryParams[k])}`)
@@ -84,6 +80,73 @@ async function generatePresignedUrl(params: S3PresignParams): Promise<string> {
   const signature = toHex(await hmacSha256(signingKey, enc.encode(stringToSign)));
 
   return `https://${host}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+}
+
+// Sign a request with AWS Signature V4 (for S3 API calls like PutBucketCors)
+async function signedS3Request(params: {
+  method: string;
+  path: string;
+  query?: string;
+  body?: string;
+  endpoint: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  headers?: Record<string, string>;
+}): Promise<Response> {
+  const { method, path, query, body, endpoint, bucket, accessKeyId, secretAccessKey, region, headers: extraHeaders } = params;
+  const now = new Date();
+  const dateStamp = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const shortDate = dateStamp.slice(0, 8);
+
+  const host = `${bucket}.${endpoint}`;
+  const enc = new TextEncoder();
+  const bodyBytes = body ? enc.encode(body) : new Uint8Array(0);
+  const payloadHash = await sha256(bodyBytes);
+
+  const allHeaders: Record<string, string> = {
+    host,
+    "x-amz-date": dateStamp,
+    "x-amz-content-sha256": payloadHash,
+    ...(extraHeaders || {}),
+  };
+  if (body) {
+    allHeaders["content-type"] = "application/xml";
+  }
+
+  const signedHeaderKeys = Object.keys(allHeaders).sort();
+  const signedHeaders = signedHeaderKeys.join(";");
+  const canonicalHeaders = signedHeaderKeys.map((k) => `${k}:${allHeaders[k]}\n`).join("");
+
+  const canonicalRequest = [
+    method,
+    path || "/",
+    query || "",
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash,
+  ].join("\n");
+
+  const canonicalRequestHash = await sha256(enc.encode(canonicalRequest));
+  const stringToSign = ["AWS4-HMAC-SHA256", dateStamp, `${shortDate}/${region}/s3/aws4_request`, canonicalRequestHash].join("\n");
+
+  const signingKey = await getSigningKey(secretAccessKey, shortDate, region, "s3");
+  const signature = toHex(await hmacSha256(signingKey, enc.encode(stringToSign)));
+
+  const authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${shortDate}/${region}/s3/aws4_request, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const url = `https://${host}${path || "/"}${query ? "?" + query : ""}`;
+  const fetchHeaders: Record<string, string> = {
+    ...allHeaders,
+    Authorization: authorization,
+  };
+
+  return fetch(url, {
+    method,
+    headers: fetchHeaders,
+    body: body || undefined,
+  });
 }
 
 Deno.serve(async (req) => {
@@ -123,12 +186,51 @@ Deno.serve(async (req) => {
     const B2_BUCKET_NAME = Deno.env.get("B2_BUCKET_NAME")!;
     const B2_ENDPOINT = Deno.env.get("B2_ENDPOINT")!;
 
-    // Extract region from endpoint (e.g., s3.us-east-005.backblazeb2.com -> us-east-005)
     const regionMatch = B2_ENDPOINT.match(/s3\.(.+?)\.backblazeb2\.com/);
     const region = regionMatch ? regionMatch[1] : "us-east-005";
 
+    if (action === "configure-cors") {
+      // Set CORS rules on the B2 bucket to allow browser uploads
+      const corsXml = `<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>*</AllowedOrigin>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>PUT</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>*</AllowedHeader>
+    <ExposeHeader>ETag</ExposeHeader>
+    <MaxAgeSeconds>3600</MaxAgeSeconds>
+  </CORSRule>
+</CORSConfiguration>`;
+
+      const response = await signedS3Request({
+        method: "PUT",
+        path: "/",
+        query: "cors",
+        body: corsXml,
+        endpoint: B2_ENDPOINT,
+        bucket: B2_BUCKET_NAME,
+        accessKeyId: B2_KEY_ID,
+        secretAccessKey: B2_APP_KEY,
+        region,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("Failed to set CORS:", text);
+        return new Response(JSON.stringify({ error: "Falha ao configurar CORS: " + text }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, message: "CORS configurado com sucesso" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "get-upload-url") {
-      // Generate presigned PUT URL for upload
       const key = filePath || `uploads/${Date.now()}-${fileName}`;
       const url = await generatePresignedUrl({
         method: "PUT",
@@ -148,7 +250,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === "get-download-url") {
-      // Generate presigned GET URL for download/streaming
       const url = await generatePresignedUrl({
         method: "GET",
         bucket: B2_BUCKET_NAME,
@@ -157,7 +258,7 @@ Deno.serve(async (req) => {
         accessKeyId: B2_KEY_ID,
         secretAccessKey: B2_APP_KEY,
         region,
-        expiresIn: 7200, // 2 hours for streaming
+        expiresIn: 7200,
       });
 
       return new Response(JSON.stringify({ url }), {
