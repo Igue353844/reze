@@ -231,6 +231,35 @@ Deno.serve(async (req) => {
     }
 
     if (action === "get-upload-url") {
+      // Auto-configure CORS on first upload attempt (fire-and-forget)
+      try {
+        const corsXmlAuto = `<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>*</AllowedOrigin>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>PUT</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>*</AllowedHeader>
+    <ExposeHeader>ETag</ExposeHeader>
+    <MaxAgeSeconds>86400</MaxAgeSeconds>
+  </CORSRule>
+</CORSConfiguration>`;
+        const corsResp = await signedS3Request({
+          method: "PUT", path: "/", query: "cors", body: corsXmlAuto,
+          endpoint: B2_ENDPOINT, bucket: B2_BUCKET_NAME,
+          accessKeyId: B2_KEY_ID, secretAccessKey: B2_APP_KEY, region,
+        });
+        if (!corsResp.ok) {
+          const t = await corsResp.text();
+          console.warn("CORS auto-config warning:", t);
+        } else {
+          console.log("CORS configured successfully on bucket", B2_BUCKET_NAME);
+        }
+      } catch (e) {
+        console.warn("CORS auto-config error:", e);
+      }
+
       const key = filePath || `uploads/${Date.now()}-${fileName}`;
       const url = await generatePresignedUrl({
         method: "PUT",

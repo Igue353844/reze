@@ -21,25 +21,12 @@ export function useB2Upload() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const corsConfiguredRef = useRef(false);
 
   const cancelUpload = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setIsUploading(false);
     setProgress(null);
-  }, []);
-
-  const ensureCorsConfigured = useCallback(async () => {
-    if (corsConfiguredRef.current) return;
-    try {
-      await supabase.functions.invoke('b2-storage', {
-        body: { action: 'configure-cors' },
-      });
-      corsConfiguredRef.current = true;
-    } catch (e) {
-      console.warn('CORS config attempt:', e);
-    }
   }, []);
 
   const getPresignedUploadUrl = useCallback(async (fileName: string, contentType: string, folder?: string) => {
@@ -89,10 +76,7 @@ export function useB2Upload() {
     });
 
     try {
-      // 0. Ensure CORS is configured on B2 bucket
-      await ensureCorsConfigured();
-
-      // 1. Get presigned URL
+      // 1. Get presigned URL (CORS is auto-configured server-side)
       const { url, key } = await getPresignedUploadUrl(file.name, file.type, folder);
 
       // 2. Upload directly to B2 via presigned URL with XHR for progress
