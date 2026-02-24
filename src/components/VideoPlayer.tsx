@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import Hls from 'hls.js';
 import { 
   Play, 
@@ -100,9 +101,22 @@ export function VideoPlayer({ src, poster, title, qualities, subtitles, videoId,
   // Check if URL is an HLS stream
   const isHlsUrl = (url: string) => /\.m3u8($|\?)/i.test(url);
 
-  // Update source when prop changes
+  // Resolve B2 URLs to presigned download URLs
   useEffect(() => {
-    setCurrentSrc(src);
+    if (src.startsWith('b2://')) {
+      const filePath = src.replace('b2://', '');
+      supabase.functions.invoke('b2-storage', {
+        body: { action: 'get-download-url', filePath },
+      }).then(({ data, error }) => {
+        if (!error && data?.url) {
+          setCurrentSrc(data.url);
+        } else {
+          console.error('Failed to resolve B2 URL:', error);
+        }
+      });
+    } else {
+      setCurrentSrc(src);
+    }
     setCurrentQuality('auto');
   }, [src]);
 

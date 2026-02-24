@@ -49,7 +49,9 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useVideos, useCategories, useCreateVideo, useDeleteVideo } from '@/hooks/useVideos';
 import { useUpload } from '@/hooks/useUpload';
+import { useB2Upload } from '@/hooks/useB2Upload';
 import { UploadProgressBar } from '@/components/UploadProgressBar';
+import { Cloud, HardDrive } from 'lucide-react';
 import { VideoCompressionDialog } from '@/components/VideoCompressionDialog';
 import { VideoEditDialog } from '@/components/VideoEditDialog';
 import { useAuth } from '@/hooks/useAuth';
@@ -158,6 +160,7 @@ const Admin = () => {
   const createVideo = useCreateVideo();
   const deleteVideo = useDeleteVideo();
   const { uploadVideo, uploadPoster, isUploading, progress, error: uploadError, cancelUpload } = useUpload();
+  const { uploadToB2, getPresignedDownloadUrl, isUploading: isB2Uploading, progress: b2Progress, error: b2UploadError, cancelUpload: cancelB2Upload } = useB2Upload();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -179,6 +182,7 @@ const Admin = () => {
   const [showCompressionDialog, setShowCompressionDialog] = useState(false);
   const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
   const [editingVideo, setEditingVideo] = useState<VideoType | null>(null);
+  const [storageDestination, setStorageDestination] = useState<'cloud' | 'b2'>('b2');
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -288,10 +292,20 @@ const Admin = () => {
       if (formData.embed_url) {
         video_url = formData.embed_url;
       } else if (videoFile) {
-        toast.info('Enviando vídeo...');
-        video_url = await uploadVideo(videoFile) || undefined;
-        if (!video_url) {
-          throw new Error('Falha ao enviar vídeo');
+        if (storageDestination === 'b2') {
+          toast.info('Enviando vídeo para Backblaze B2...');
+          const result = await uploadToB2(videoFile, 'videos');
+          if (!result) {
+            throw new Error('Falha ao enviar vídeo para B2');
+          }
+          // Store as b2:// protocol so the player knows to get a presigned URL
+          video_url = `b2://${result.key}`;
+        } else {
+          toast.info('Enviando vídeo...');
+          video_url = await uploadVideo(videoFile) || undefined;
+          if (!video_url) {
+            throw new Error('Falha ao enviar vídeo');
+          }
         }
       }
 
@@ -665,6 +679,36 @@ const Admin = () => {
                   </div>
                 </div>
 
+                {/* Storage Destination */}
+                <div>
+                  <Label>Destino do Upload de Vídeo</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Escolha onde armazenar o arquivo de vídeo
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={storageDestination === 'b2' ? 'default' : 'outline'}
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setStorageDestination('b2')}
+                    >
+                      <HardDrive className="w-4 h-4" />
+                      Backblaze B2 (10GB grátis)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={storageDestination === 'cloud' ? 'default' : 'outline'}
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setStorageDestination('cloud')}
+                    >
+                      <Cloud className="w-4 h-4" />
+                      Cloud (1GB)
+                    </Button>
+                  </div>
+                </div>
+
                 {/* Video Upload */}
                 <div>
                   <Label>Arquivo de Vídeo</Label>
@@ -684,6 +728,9 @@ const Admin = () => {
                             {videoFile.name.includes('_compressed') && (
                               <span className="text-green-500 ml-2">✓ Comprimido</span>
                             )}
+                            <span className="ml-2 text-primary">
+                              → {storageDestination === 'b2' ? 'Backblaze B2' : 'Cloud'}
+                            </span>
                           </p>
                         </div>
                         <Button
@@ -751,14 +798,23 @@ const Admin = () => {
                     onCancel={cancelUpload}
                   />
                 )}
+                {(isB2Uploading || b2Progress || b2UploadError) && (
+                  <UploadProgressBar
+                    progress={b2Progress}
+                    isUploading={isB2Uploading}
+                    error={b2UploadError}
+                    fileName={videoFile?.name ? `[B2] ${videoFile.name}` : undefined}
+                    onCancel={cancelB2Upload}
+                  />
+                )}
 
                 {/* Submit */}
                 <Button 
                   type="submit" 
                   className="w-full gap-2"
-                  disabled={isSubmitting || isUploading}
+                  disabled={isSubmitting || isUploading || isB2Uploading}
                 >
-                  {isSubmitting || isUploading ? (
+                  {isSubmitting || isUploading || isB2Uploading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Enviando...
