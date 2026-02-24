@@ -31,7 +31,7 @@ async function getSigningKey(secretKey: string, dateStamp: string, region: strin
   return key;
 }
 
-interface S3PresignParams {
+async function generatePresignedUrl(params: {
   method: string;
   bucket: string;
   key: string;
@@ -40,11 +40,8 @@ interface S3PresignParams {
   secretAccessKey: string;
   region: string;
   expiresIn?: number;
-  contentType?: string;
-}
-
-async function generatePresignedUrl(params: S3PresignParams): Promise<string> {
-  const { method, bucket, key, endpoint, accessKeyId, secretAccessKey, region, expiresIn = 3600, contentType } = params;
+}): Promise<string> {
+  const { method, bucket, key, endpoint, accessKeyId, secretAccessKey, region, expiresIn = 3600 } = params;
   const now = new Date();
   const dateStamp = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
   const shortDate = dateStamp.slice(0, 8);
@@ -82,72 +79,71 @@ async function generatePresignedUrl(params: S3PresignParams): Promise<string> {
   return `https://${host}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
 }
 
-// Sign a request with AWS Signature V4 (for S3 API calls like PutBucketCors)
-async function signedS3Request(params: {
-  method: string;
-  path: string;
-  query?: string;
-  body?: string;
-  endpoint: string;
-  bucket: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  region: string;
-  headers?: Record<string, string>;
-}): Promise<Response> {
-  const { method, path, query, body, endpoint, bucket, accessKeyId, secretAccessKey, region, headers: extraHeaders } = params;
-  const now = new Date();
-  const dateStamp = now.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-  const shortDate = dateStamp.slice(0, 8);
+// Configure CORS on B2 bucket using B2 native API
+async function configureB2Cors(keyId: string, appKey: string, bucketName: string): Promise<boolean> {
+  try {
+    // Step 1: Authorize
+    const authResp = await fetch("https://api.backblazeb2.com/b2api/v2/b2_authorize_account", {
+      headers: { Authorization: "Basic " + btoa(keyId + ":" + appKey) },
+    });
+    if (!authResp.ok) {
+      console.warn("B2 auth failed:", await authResp.text());
+      return false;
+    }
+    const authData = await authResp.json();
 
-  const host = `${bucket}.${endpoint}`;
-  const enc = new TextEncoder();
-  const bodyBytes = body ? enc.encode(body) : new Uint8Array(0);
-  const payloadHash = await sha256(bodyBytes);
+    // Step 2: List buckets to get bucket ID
+    const listResp = await fetch(`${authData.apiUrl}/b2api/v2/b2_list_buckets`, {
+      method: "POST",
+      headers: { Authorization: authData.authorizationToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId: authData.accountId, bucketName }),
+    });
+    if (!listResp.ok) {
+      console.warn("B2 list buckets failed:", await listResp.text());
+      return false;
+    }
+    const listData = await listResp.json();
+    const bucket = listData.buckets?.[0];
+    if (!bucket) {
+      console.warn("Bucket not found:", bucketName);
+      return false;
+    }
 
-  const allHeaders: Record<string, string> = {
-    host,
-    "x-amz-date": dateStamp,
-    "x-amz-content-sha256": payloadHash,
-    ...(extraHeaders || {}),
-  };
-  if (body) {
-    allHeaders["content-type"] = "application/xml";
+    // Step 3: Update bucket with CORS rules
+    const updateResp = await fetch(`${authData.apiUrl}/b2api/v2/b2_update_bucket`, {
+      method: "POST",
+      headers: { Authorization: authData.authorizationToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accountId: authData.accountId,
+        bucketId: bucket.bucketId,
+        corsRules: [
+          {
+            corsRuleName: "allowAllUploadsAndDownloads",
+            allowedOrigins: ["*"],
+            allowedOperations: ["s3_put", "s3_get", "s3_head"],
+            allowedHeaders: ["*"],
+            exposeHeaders: ["ETag", "x-amz-request-id"],
+            maxAgeSeconds: 86400,
+          },
+        ],
+      }),
+    });
+
+    if (updateResp.ok) {
+      console.log("CORS configured successfully on bucket", bucketName);
+      return true;
+    } else {
+      console.warn("CORS update failed:", await updateResp.text());
+      return false;
+    }
+  } catch (e) {
+    console.warn("CORS config error:", e);
+    return false;
   }
-
-  const signedHeaderKeys = Object.keys(allHeaders).sort();
-  const signedHeaders = signedHeaderKeys.join(";");
-  const canonicalHeaders = signedHeaderKeys.map((k) => `${k}:${allHeaders[k]}\n`).join("");
-
-  const canonicalRequest = [
-    method,
-    path || "/",
-    query || "",
-    canonicalHeaders,
-    signedHeaders,
-    payloadHash,
-  ].join("\n");
-
-  const canonicalRequestHash = await sha256(enc.encode(canonicalRequest));
-  const stringToSign = ["AWS4-HMAC-SHA256", dateStamp, `${shortDate}/${region}/s3/aws4_request`, canonicalRequestHash].join("\n");
-
-  const signingKey = await getSigningKey(secretAccessKey, shortDate, region, "s3");
-  const signature = toHex(await hmacSha256(signingKey, enc.encode(stringToSign)));
-
-  const authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${shortDate}/${region}/s3/aws4_request, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-  const url = `https://${host}${path || "/"}${query ? "?" + query : ""}`;
-  const fetchHeaders: Record<string, string> = {
-    ...allHeaders,
-    Authorization: authorization,
-  };
-
-  return fetch(url, {
-    method,
-    headers: fetchHeaders,
-    body: body || undefined,
-  });
 }
+
+// Track if CORS has been configured in this isolate
+let corsConfigured = false;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -155,12 +151,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify auth
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -173,8 +167,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -190,74 +183,17 @@ Deno.serve(async (req) => {
     const region = regionMatch ? regionMatch[1] : "us-east-005";
 
     if (action === "configure-cors") {
-      // Set CORS rules on the B2 bucket to allow browser uploads
-      const corsXml = `<?xml version="1.0" encoding="UTF-8"?>
-<CORSConfiguration>
-  <CORSRule>
-    <AllowedOrigin>*</AllowedOrigin>
-    <AllowedMethod>GET</AllowedMethod>
-    <AllowedMethod>PUT</AllowedMethod>
-    <AllowedMethod>HEAD</AllowedMethod>
-    <AllowedHeader>*</AllowedHeader>
-    <ExposeHeader>ETag</ExposeHeader>
-    <MaxAgeSeconds>3600</MaxAgeSeconds>
-  </CORSRule>
-</CORSConfiguration>`;
-
-      const response = await signedS3Request({
-        method: "PUT",
-        path: "/",
-        query: "cors",
-        body: corsXml,
-        endpoint: B2_ENDPOINT,
-        bucket: B2_BUCKET_NAME,
-        accessKeyId: B2_KEY_ID,
-        secretAccessKey: B2_APP_KEY,
-        region,
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        console.error("Failed to set CORS:", text);
-        return new Response(JSON.stringify({ error: "Falha ao configurar CORS: " + text }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ success: true, message: "CORS configurado com sucesso" }), {
+      const success = await configureB2Cors(B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME);
+      corsConfigured = success;
+      return new Response(JSON.stringify({ success }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "get-upload-url") {
-      // Auto-configure CORS on first upload attempt (fire-and-forget)
-      try {
-        const corsXmlAuto = `<?xml version="1.0" encoding="UTF-8"?>
-<CORSConfiguration>
-  <CORSRule>
-    <AllowedOrigin>*</AllowedOrigin>
-    <AllowedMethod>GET</AllowedMethod>
-    <AllowedMethod>PUT</AllowedMethod>
-    <AllowedMethod>HEAD</AllowedMethod>
-    <AllowedHeader>*</AllowedHeader>
-    <ExposeHeader>ETag</ExposeHeader>
-    <MaxAgeSeconds>86400</MaxAgeSeconds>
-  </CORSRule>
-</CORSConfiguration>`;
-        const corsResp = await signedS3Request({
-          method: "PUT", path: "/", query: "cors", body: corsXmlAuto,
-          endpoint: B2_ENDPOINT, bucket: B2_BUCKET_NAME,
-          accessKeyId: B2_KEY_ID, secretAccessKey: B2_APP_KEY, region,
-        });
-        if (!corsResp.ok) {
-          const t = await corsResp.text();
-          console.warn("CORS auto-config warning:", t);
-        } else {
-          console.log("CORS configured successfully on bucket", B2_BUCKET_NAME);
-        }
-      } catch (e) {
-        console.warn("CORS auto-config error:", e);
+      // Auto-configure CORS if not yet done in this isolate
+      if (!corsConfigured) {
+        corsConfigured = await configureB2Cors(B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME);
       }
 
       const key = filePath || `uploads/${Date.now()}-${fileName}`;
@@ -270,7 +206,6 @@ Deno.serve(async (req) => {
         secretAccessKey: B2_APP_KEY,
         region,
         expiresIn: 3600,
-        contentType: contentType || "application/octet-stream",
       });
 
       return new Response(JSON.stringify({ url, key }), {
@@ -296,14 +231,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ error: "Ação inválida" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("B2 storage error:", err);
     return new Response(JSON.stringify({ error: err.message || "Erro interno" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
