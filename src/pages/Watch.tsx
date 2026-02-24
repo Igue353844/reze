@@ -11,6 +11,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FavoriteButton } from '@/components/FavoriteButton';
+import { useVideoUrlCheck } from '@/hooks/useVideoUrlCheck';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import type { Episode } from '@/types/video';
@@ -85,6 +88,9 @@ const Watch = () => {
 
   const currentVideoUrl = currentEpisode?.video_url || video?.video_url;
   const currentPoster = currentEpisode?.poster_url || video?.banner_url || video?.poster_url;
+
+  // URL accessibility check
+  const { data: urlCheck, isLoading: isCheckingUrl } = useVideoUrlCheck(currentVideoUrl);
 
   // Check if URL is an embed/iframe link (not a direct video file)
   const isEmbedUrl = (url: string): boolean => {
@@ -163,6 +169,22 @@ const Watch = () => {
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Link>
+
+          {/* URL Check Warning */}
+          {currentVideoUrl && !isEmbed && isCheckingUrl && (
+            <Alert className="mb-4 border-muted">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <AlertDescription>Verificando disponibilidade do vídeo...</AlertDescription>
+            </Alert>
+          )}
+          {currentVideoUrl && !isEmbed && urlCheck && !urlCheck.accessible && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Este link de vídeo está indisponível ou expirado. {urlCheck.error || `Status: ${urlCheck.status}`}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {currentVideoUrl ? (
             isEmbed ? (
