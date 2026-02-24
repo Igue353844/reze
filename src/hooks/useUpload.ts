@@ -66,15 +66,15 @@ export function useUpload() {
   }, []);
 
   const getAccessToken = useCallback(async (): Promise<string> => {
-    // Always get a fresh session to avoid expired tokens on long uploads
+    // Always force a refresh to ensure we have a valid, non-expired token
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError && refreshData.session?.access_token) {
+      return refreshData.session.access_token;
+    }
+    // Fallback: try getting existing session
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session?.access_token) {
-      // Try to refresh the session
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData.session?.access_token) {
-        throw new Error('Sessão expirada. Faça login novamente.');
-      }
-      return refreshData.session.access_token;
+      throw new Error('Sessão expirada. Faça login novamente.');
     }
     return session.access_token;
   }, []);
