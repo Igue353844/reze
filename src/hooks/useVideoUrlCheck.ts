@@ -23,13 +23,15 @@ export function useVideoUrlCheck(url: string | null | undefined) {
 
       return data as UrlCheckResult;
     },
-    enabled: !!url && !isEmbedUrl(url),
+    enabled: !!url && !shouldSkipCheck(url),
     staleTime: 5 * 60 * 1000, // cache 5 min
     retry: 1,
   });
 }
 
-function isEmbedUrl(url: string): boolean {
+function shouldSkipCheck(url: string): boolean {
+  // Skip URL check for embed URLs and internal storage references
+  if (url.startsWith('b2://')) return true;
   const embedPatterns = [
     /youtube\.com/i,
     /youtu\.be/i,

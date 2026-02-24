@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { useVideoUrlCheck } from '@/hooks/useVideoUrlCheck';
+import { useB2Url } from '@/hooks/useB2Url';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
@@ -86,8 +87,11 @@ const Watch = () => {
     return hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
   };
 
-  const currentVideoUrl = currentEpisode?.video_url || video?.video_url;
+  const rawVideoUrl = currentEpisode?.video_url || video?.video_url;
   const currentPoster = currentEpisode?.poster_url || video?.banner_url || video?.poster_url;
+
+  // Resolve b2:// URLs to real presigned download URLs
+  const { url: currentVideoUrl, isLoading: isResolvingB2 } = useB2Url(rawVideoUrl);
 
   // URL accessibility check
   const { data: urlCheck, isLoading: isCheckingUrl } = useVideoUrlCheck(currentVideoUrl);
@@ -171,10 +175,10 @@ const Watch = () => {
           </Link>
 
           {/* URL Check Warning */}
-          {currentVideoUrl && !isEmbed && isCheckingUrl && (
+          {currentVideoUrl && !isEmbed && (isCheckingUrl || isResolvingB2) && (
             <Alert className="mb-4 border-muted">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <AlertDescription>Verificando disponibilidade do vídeo...</AlertDescription>
+              <AlertDescription>{isResolvingB2 ? 'Preparando vídeo...' : 'Verificando disponibilidade do vídeo...'}</AlertDescription>
             </Alert>
           )}
           {currentVideoUrl && !isEmbed && urlCheck && !urlCheck.accessible && (
