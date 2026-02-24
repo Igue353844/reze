@@ -16,6 +16,13 @@ function formatTime(seconds: number): string {
   return `${hours}h ${mins}m`;
 }
 
+function sanitizeFileName(name: string): string {
+  // Remove accents/diacritics
+  const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // Replace special chars with hyphens, keep dots and alphanumeric
+  return normalized.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
+}
+
 export function useB2Upload() {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
@@ -30,9 +37,10 @@ export function useB2Upload() {
   }, []);
 
   const getPresignedUploadUrl = useCallback(async (fileName: string, contentType: string, folder?: string) => {
+    const safeName = sanitizeFileName(fileName);
     const filePath = folder 
-      ? `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}-${fileName}`
-      : `${Date.now()}-${Math.random().toString(36).substring(7)}-${fileName}`;
+      ? `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}-${safeName}`
+      : `${Date.now()}-${Math.random().toString(36).substring(7)}-${safeName}`;
 
     const { data, error } = await supabase.functions.invoke('b2-storage', {
       body: {
@@ -122,6 +130,7 @@ export function useB2Upload() {
         });
 
         xhr.addEventListener('load', () => {
+          console.log('B2 upload response:', xhr.status, xhr.responseText?.substring(0, 200));
           if (xhr.status >= 200 && xhr.status < 300) {
             setProgress({
               loaded: file.size,
@@ -138,7 +147,10 @@ export function useB2Upload() {
           }
         });
 
-        xhr.addEventListener('error', () => reject(new Error('Erro de conexão durante upload')));
+        xhr.addEventListener('error', (e) => {
+          console.error('B2 XHR error event:', e);
+          reject(new Error('Erro de conexão durante upload. Verifique sua internet e tente novamente.'));
+        });
         xhr.addEventListener('abort', () => reject(new Error('Upload cancelado')));
 
         // Listen for abort
