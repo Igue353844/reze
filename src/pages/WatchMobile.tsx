@@ -3,6 +3,7 @@ import { TVLayout } from '@/components/tv/TVLayout';
 import { TVVideoPlayer } from '@/components/tv/TVVideoPlayer';
 import { useVideos } from '@/hooks/useVideos';
 import { useSeasonsWithEpisodes } from '@/hooks/useSeasons';
+import { useB2Url } from '@/hooks/useB2Url';
 import { Loader2, Film } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -28,11 +29,14 @@ const WatchMobile = () => {
   }, [episodeId, seasons]);
 
   // Determine video source
-  const videoSrc = useMemo(() => {
+  const rawVideoSrc = useMemo(() => {
     if (currentEpisode?.video_url) return currentEpisode.video_url;
     if (video?.video_url) return video.video_url;
     return '';
   }, [currentEpisode, video]);
+
+  const isInternalB2Url = rawVideoSrc?.trim().toLowerCase().startsWith('b2://') ?? false;
+  const { url: videoSrc, isLoading: isResolvingB2 } = useB2Url(rawVideoSrc);
 
   // Title to display
   const displayTitle = useMemo(() => {
@@ -98,13 +102,27 @@ const WatchMobile = () => {
     );
   }
 
+  if (isResolvingB2) {
+    return (
+      <TVLayout onBack={handleBack}>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="w-16 h-16 animate-spin text-primary" />
+        </div>
+      </TVLayout>
+    );
+  }
+
   if (!videoSrc) {
     return (
       <TVLayout onBack={handleBack}>
         <div className="flex flex-col items-center justify-center min-h-screen p-8">
           <Film className="w-20 h-20 text-muted-foreground mb-6" />
           <h1 className="font-display text-3xl text-foreground mb-2">Vídeo indisponível</h1>
-          <p className="text-muted-foreground text-lg">Este conteúdo ainda não possui um vídeo.</p>
+          <p className="text-muted-foreground text-lg">
+            {isInternalB2Url
+              ? 'Não foi possível preparar este vídeo no armazenamento agora.'
+              : 'Este conteúdo ainda não possui um vídeo.'}
+          </p>
         </div>
       </TVLayout>
     );

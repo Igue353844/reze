@@ -89,9 +89,14 @@ const Watch = () => {
 
   const rawVideoUrl = currentEpisode?.video_url || video?.video_url;
   const currentPoster = currentEpisode?.poster_url || video?.banner_url || video?.poster_url;
+  const isInternalB2Url = rawVideoUrl?.trim().toLowerCase().startsWith('b2://') ?? false;
 
   // Resolve b2:// URLs to real presigned download URLs
-  const { url: currentVideoUrl, isLoading: isResolvingB2 } = useB2Url(rawVideoUrl);
+  const {
+    url: currentVideoUrl,
+    isLoading: isResolvingB2,
+    error: b2ResolveError,
+  } = useB2Url(rawVideoUrl);
 
   // URL accessibility check
   const { data: urlCheck, isLoading: isCheckingUrl } = useVideoUrlCheck(currentVideoUrl);
@@ -181,6 +186,14 @@ const Watch = () => {
               <AlertDescription>{isResolvingB2 ? 'Preparando vídeo...' : 'Verificando disponibilidade do vídeo...'}</AlertDescription>
             </Alert>
           )}
+          {isInternalB2Url && !isResolvingB2 && !currentVideoUrl && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Não foi possível preparar o vídeo no armazenamento. {b2ResolveError?.message || 'Tente novamente em instantes.'}
+              </AlertDescription>
+            </Alert>
+          )}
           {currentVideoUrl && !isEmbed && urlCheck && !urlCheck.accessible && (
             <Alert variant="destructive" className="mb-4">
               <AlertTriangle className="h-4 w-4" />
@@ -214,9 +227,11 @@ const Watch = () => {
           ) : (
             <div className="aspect-video bg-secondary rounded-lg flex items-center justify-center">
               <p className="text-muted-foreground">
-                {video.type === 'series' && seasons && seasons.length > 0 
-                  ? 'Selecione um episódio para assistir'
-                  : 'Nenhum vídeo disponível'}
+                {isInternalB2Url
+                  ? 'Não foi possível carregar o vídeo agora. Tente novamente em instantes.'
+                  : video.type === 'series' && seasons && seasons.length > 0
+                    ? 'Selecione um episódio para assistir'
+                    : 'Nenhum vídeo disponível'}
               </p>
             </div>
           )}
