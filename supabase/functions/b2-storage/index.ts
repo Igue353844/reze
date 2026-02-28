@@ -79,71 +79,136 @@ async function generatePresignedUrl(params: {
   return `https://${host}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
 }
 
-// Configure CORS on B2 bucket using B2 native API
 async function configureB2Cors(keyId: string, appKey: string, bucketName: string): Promise<boolean> {
   try {
-    // Step 1: Authorize
     const authResp = await fetch("https://api.backblazeb2.com/b2api/v2/b2_authorize_account", {
       headers: { Authorization: "Basic " + btoa(keyId + ":" + appKey) },
     });
-    if (!authResp.ok) {
-      console.warn("B2 auth failed:", await authResp.text());
-      return false;
-    }
+    if (!authResp.ok) return false;
     const authData = await authResp.json();
 
-    // Step 2: List buckets to get bucket ID
     const listResp = await fetch(`${authData.apiUrl}/b2api/v2/b2_list_buckets`, {
       method: "POST",
       headers: { Authorization: authData.authorizationToken, "Content-Type": "application/json" },
       body: JSON.stringify({ accountId: authData.accountId, bucketName }),
     });
-    if (!listResp.ok) {
-      console.warn("B2 list buckets failed:", await listResp.text());
-      return false;
-    }
+    if (!listResp.ok) return false;
     const listData = await listResp.json();
     const bucket = listData.buckets?.[0];
-    if (!bucket) {
-      console.warn("Bucket not found:", bucketName);
-      return false;
-    }
+    if (!bucket) return false;
 
-    // Step 3: Update bucket with CORS rules
     const updateResp = await fetch(`${authData.apiUrl}/b2api/v2/b2_update_bucket`, {
       method: "POST",
       headers: { Authorization: authData.authorizationToken, "Content-Type": "application/json" },
       body: JSON.stringify({
         accountId: authData.accountId,
         bucketId: bucket.bucketId,
-        corsRules: [
-          {
-            corsRuleName: "allowAllUploadsAndDownloads",
-            allowedOrigins: ["*"],
-            allowedOperations: ["s3_put", "s3_get", "s3_head"],
-            allowedHeaders: ["*"],
-            exposeHeaders: ["ETag", "x-amz-request-id"],
-            maxAgeSeconds: 86400,
-          },
-        ],
+        corsRules: [{
+          corsRuleName: "allowAllUploadsAndDownloads",
+          allowedOrigins: ["*"],
+          allowedOperations: ["s3_put", "s3_get", "s3_head"],
+          allowedHeaders: ["*"],
+          exposeHeaders: ["ETag", "x-amz-request-id"],
+          maxAgeSeconds: 86400,
+        }],
       }),
     });
-
-    if (updateResp.ok) {
-      console.log("CORS configured successfully on bucket", bucketName);
-      return true;
-    } else {
-      console.warn("CORS update failed:", await updateResp.text());
-      return false;
-    }
-  } catch (e) {
-    console.warn("CORS config error:", e);
+    return updateResp.ok;
+  } catch {
     return false;
   }
 }
 
-// Track if CORS has been configured in this isolate
-let corsConfigured = false;
+// ─── Account resolution helpers ─────────────────────────────────────────────
+
+interface B2Account {
+  id: string;
+  label: string;
+  key_id: string;
+  app_key: string;
+  bucket_name: string;
+  endpoint: string;
+  max_storage_bytes: number;
+  used_storage_bytes: number;
+}
+
+/** Get account by label from database using service role */
+async function getAccountByLabel(label: string): Promise<B2Account | null> {
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+  const { data } = await sb
+    .from("b2_accounts")
+    .select("*")
+    .eq("label", label)
+    .eq("is_active", true)
+    .single();
+  return data as B2Account | null;
+}
+
+/** Get the best available account (least used, with space remaining) */
+async function getBestAccount(): Promise<B2Account | null> {
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+  const { data } = await sb
+    .from("b2_accounts")
+    .select("*")
+    .eq("is_active", true)
+    .order("priority", { ascending: true })
+    .order("used_storage_bytes", { ascending: true });
+
+  if (!data || data.length === 0) return null;
+  // Pick first account that still has space
+  for (const acc of data) {
+    if (acc.used_storage_bytes < acc.max_storage_bytes) return acc as B2Account;
+  }
+  return null; // all full
+}
+
+/** Increment used_storage_bytes for an account */
+async function incrementUsage(accountId: string, bytes: number) {
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+  // Use rpc or direct update
+  const { data: current } = await sb
+    .from("b2_accounts")
+    .select("used_storage_bytes")
+    .eq("id", accountId)
+    .single();
+  if (current) {
+    await sb
+      .from("b2_accounts")
+      .update({ used_storage_bytes: current.used_storage_bytes + bytes })
+      .eq("id", accountId);
+  }
+}
+
+function getRegion(endpoint: string): string {
+  const match = endpoint.match(/s3\.(.+?)\.backblazeb2\.com/);
+  return match ? match[1] : "us-east-005";
+}
+
+// Fallback to env vars (legacy single-account mode)
+function getLegacyAccount(): B2Account {
+  return {
+    id: "legacy",
+    label: "default",
+    key_id: Deno.env.get("B2_KEY_ID")!,
+    app_key: Deno.env.get("B2_APP_KEY")!,
+    bucket_name: Deno.env.get("B2_BUCKET_NAME")!,
+    endpoint: Deno.env.get("B2_ENDPOINT")!,
+    max_storage_bytes: 10737418240,
+    used_storage_bytes: 0,
+  };
+}
+
+// Track CORS per bucket
+const corsConfiguredSet = new Set<string>();
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -172,60 +237,117 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { action, fileName, contentType, filePath } = body;
+    const { action, fileName, contentType, filePath, fileSize, accountLabel } = body;
 
-    const B2_KEY_ID = Deno.env.get("B2_KEY_ID")!;
-    const B2_APP_KEY = Deno.env.get("B2_APP_KEY")!;
-    const B2_BUCKET_NAME = Deno.env.get("B2_BUCKET_NAME")!;
-    const B2_ENDPOINT = Deno.env.get("B2_ENDPOINT")!;
-
-    const regionMatch = B2_ENDPOINT.match(/s3\.(.+?)\.backblazeb2\.com/);
-    const region = regionMatch ? regionMatch[1] : "us-east-005";
-
-    if (action === "configure-cors") {
-      const success = await configureB2Cors(B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME);
-      corsConfigured = success;
-      return new Response(JSON.stringify({ success }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    // ─── GET UPLOAD URL ─────────────────────────────────────────────
     if (action === "get-upload-url") {
-      // Auto-configure CORS if not yet done in this isolate
-      if (!corsConfigured) {
-        corsConfigured = await configureB2Cors(B2_KEY_ID, B2_APP_KEY, B2_BUCKET_NAME);
+      // Pick the best available account from the pool
+      let account = await getBestAccount();
+      if (!account) {
+        // Fallback to legacy env vars
+        account = getLegacyAccount();
+      }
+
+      const region = getRegion(account.endpoint);
+      const bucketKey = `${account.label}:${account.bucket_name}`;
+
+      // Auto-configure CORS if not yet done for this bucket
+      if (!corsConfiguredSet.has(bucketKey)) {
+        const ok = await configureB2Cors(account.key_id, account.app_key, account.bucket_name);
+        if (ok) corsConfiguredSet.add(bucketKey);
       }
 
       const key = filePath || `uploads/${Date.now()}-${fileName}`;
       const url = await generatePresignedUrl({
         method: "PUT",
-        bucket: B2_BUCKET_NAME,
+        bucket: account.bucket_name,
         key,
-        endpoint: B2_ENDPOINT,
-        accessKeyId: B2_KEY_ID,
-        secretAccessKey: B2_APP_KEY,
+        endpoint: account.endpoint,
+        accessKeyId: account.key_id,
+        secretAccessKey: account.app_key,
         region,
         expiresIn: 3600,
       });
 
-      return new Response(JSON.stringify({ url, key }), {
+      // Track storage usage estimate
+      if (fileSize && account.id !== "legacy") {
+        await incrementUsage(account.id, fileSize);
+      }
+
+      return new Response(JSON.stringify({ url, key, accountLabel: account.label }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // ─── GET DOWNLOAD URL ───────────────────────────────────────────
     if (action === "get-download-url") {
+      let account: B2Account | null = null;
+
+      // If accountLabel is provided, look up that specific account
+      if (accountLabel) {
+        account = await getAccountByLabel(accountLabel);
+      }
+
+      // Fallback to legacy env vars
+      if (!account) {
+        account = getLegacyAccount();
+      }
+
+      const region = getRegion(account.endpoint);
       const url = await generatePresignedUrl({
         method: "GET",
-        bucket: B2_BUCKET_NAME,
+        bucket: account.bucket_name,
         key: filePath,
-        endpoint: B2_ENDPOINT,
-        accessKeyId: B2_KEY_ID,
-        secretAccessKey: B2_APP_KEY,
+        endpoint: account.endpoint,
+        accessKeyId: account.key_id,
+        secretAccessKey: account.app_key,
         region,
         expiresIn: 7200,
       });
 
       return new Response(JSON.stringify({ url }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── CONFIGURE CORS ─────────────────────────────────────────────
+    if (action === "configure-cors") {
+      let account: B2Account | null = null;
+      if (accountLabel) {
+        account = await getAccountByLabel(accountLabel);
+      }
+      if (!account) account = getLegacyAccount();
+      const success = await configureB2Cors(account.key_id, account.app_key, account.bucket_name);
+      return new Response(JSON.stringify({ success }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── LIST ACCOUNTS (admin only) ─────────────────────────────────
+    if (action === "list-accounts") {
+      const sb = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      // Check admin
+      const { data: roleData } = await sb
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .single();
+      if (!roleData) {
+        return new Response(JSON.stringify({ error: "Não autorizado" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: accounts } = await sb
+        .from("b2_accounts")
+        .select("id, label, bucket_name, endpoint, max_storage_bytes, used_storage_bytes, is_active, priority, created_at")
+        .order("priority", { ascending: true });
+
+      return new Response(JSON.stringify({ accounts: accounts || [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

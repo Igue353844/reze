@@ -82,6 +82,51 @@ export type Database = {
           },
         ]
       }
+      b2_accounts: {
+        Row: {
+          app_key: string
+          bucket_name: string
+          created_at: string
+          endpoint: string
+          id: string
+          is_active: boolean
+          key_id: string
+          label: string
+          max_storage_bytes: number
+          priority: number
+          updated_at: string
+          used_storage_bytes: number
+        }
+        Insert: {
+          app_key: string
+          bucket_name: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          is_active?: boolean
+          key_id: string
+          label: string
+          max_storage_bytes?: number
+          priority?: number
+          updated_at?: string
+          used_storage_bytes?: number
+        }
+        Update: {
+          app_key?: string
+          bucket_name?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          is_active?: boolean
+          key_id?: string
+          label?: string
+          max_storage_bytes?: number
+          priority?: number
+          updated_at?: string
+          used_storage_bytes?: number
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string

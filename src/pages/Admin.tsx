@@ -61,6 +61,7 @@ import { SeriesManager } from '@/components/SeriesManager';
 import { ChannelManager } from '@/components/ChannelManager';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { AvatarManager } from '@/components/AvatarManager';
+import { B2AccountManager } from '@/components/B2AccountManager';
 
 // Video list item component with series management
 function VideoListItem({ 
@@ -298,8 +299,10 @@ const Admin = () => {
           if (!result) {
             throw new Error('Falha ao enviar vídeo para B2');
           }
-          // Store as b2:// protocol so the player knows to get a presigned URL
-          video_url = `b2://${result.key}`;
+          // Store as b2://accountLabel/key so the player resolves via the correct account
+          video_url = result.accountLabel && result.accountLabel !== 'default'
+            ? `b2://${result.accountLabel}/${result.key}`
+            : `b2://${result.key}`;
         } else {
           toast.info('Enviando vídeo...');
           video_url = await uploadVideo(videoFile) || undefined;
@@ -447,7 +450,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="videos" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
             <TabsTrigger value="videos" className="gap-2">
               <Film className="w-4 h-4" />
               Vídeos
@@ -455,6 +458,10 @@ const Admin = () => {
             <TabsTrigger value="tv" className="gap-2">
               <Radio className="w-4 h-4" />
               TV ao Vivo
+            </TabsTrigger>
+            <TabsTrigger value="storage" className="gap-2">
+              <HardDrive className="w-4 h-4" />
+              Storage
             </TabsTrigger>
             <TabsTrigger value="avatars" className="gap-2">
               <Smile className="w-4 h-4" />
@@ -901,6 +908,24 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <AvatarManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Storage Tab */}
+          <TabsContent value="storage">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <HardDrive className="w-5 h-5 text-primary" />
+                  Pool de Contas B2
+                </CardTitle>
+                <CardDescription>
+                  Gerencie múltiplas contas Backblaze B2. Quando uma encher, o upload vai automaticamente para a próxima.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <B2AccountManager />
               </CardContent>
             </Card>
           </TabsContent>

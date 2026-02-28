@@ -36,7 +36,7 @@ export function useB2Upload() {
     setProgress(null);
   }, []);
 
-  const getPresignedUploadUrl = useCallback(async (fileName: string, contentType: string, folder?: string) => {
+  const getPresignedUploadUrl = useCallback(async (fileName: string, contentType: string, folder?: string, fileSize?: number) => {
     const safeName = sanitizeFileName(fileName);
     const filePath = folder 
       ? `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}-${safeName}`
@@ -48,11 +48,12 @@ export function useB2Upload() {
         fileName,
         contentType,
         filePath,
+        fileSize,
       },
     });
 
     if (error) throw new Error('Erro ao obter URL de upload: ' + error.message);
-    return { url: data.url as string, key: data.key as string };
+    return { url: data.url as string, key: data.key as string, accountLabel: data.accountLabel as string };
   }, []);
 
   const getPresignedDownloadUrl = useCallback(async (filePath: string): Promise<string> => {
@@ -70,7 +71,7 @@ export function useB2Upload() {
   const uploadToB2 = useCallback(async (
     file: File,
     folder?: string
-  ): Promise<{ key: string } | null> => {
+  ): Promise<{ key: string; accountLabel: string } | null> => {
     setIsUploading(true);
     setError(null);
     setProgress({
@@ -88,7 +89,7 @@ export function useB2Upload() {
     try {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const { url, key } = await getPresignedUploadUrl(file.name, file.type, folder);
+          const { url, key, accountLabel } = await getPresignedUploadUrl(file.name, file.type, folder, file.size);
 
           const abortController = new AbortController();
           abortControllerRef.current = abortController;
@@ -162,7 +163,7 @@ export function useB2Upload() {
             xhr.send(file);
           });
 
-          return { key };
+          return { key, accountLabel };
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Upload falhou';
           if (message === 'Upload cancelado') {
