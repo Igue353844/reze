@@ -62,6 +62,9 @@ import { ChannelManager } from '@/components/ChannelManager';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { AvatarManager } from '@/components/AvatarManager';
 import { B2AccountManager } from '@/components/B2AccountManager';
+import { StorageDashboard } from '@/components/StorageDashboard';
+import { AIChatPanel } from '@/components/AIChatPanel';
+import { Bot, BarChart3 } from 'lucide-react';
 
 // Video list item component with series management
 function VideoListItem({ 
@@ -450,26 +453,34 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="videos" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="videos" className="gap-2">
               <Film className="w-4 h-4" />
-              Vídeos
+              <span className="hidden sm:inline">Vídeos</span>
             </TabsTrigger>
             <TabsTrigger value="tv" className="gap-2">
               <Radio className="w-4 h-4" />
-              TV ao Vivo
+              <span className="hidden sm:inline">TV</span>
             </TabsTrigger>
             <TabsTrigger value="storage" className="gap-2">
               <HardDrive className="w-4 h-4" />
-              Storage
+              <span className="hidden sm:inline">Storage</span>
+            </TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="ai-chat" className="gap-2">
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">IA</span>
             </TabsTrigger>
             <TabsTrigger value="avatars" className="gap-2">
               <Smile className="w-4 h-4" />
-              Avatares
+              <span className="hidden sm:inline">Avatares</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Palette className="w-4 h-4" />
-              Tema
+              <span className="hidden sm:inline">Tema</span>
             </TabsTrigger>
           </TabsList>
 
@@ -926,6 +937,42 @@ const Admin = () => {
               </CardHeader>
               <CardContent>
                 <B2AccountManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Storage Dashboard Tab */}
+          <TabsContent value="dashboard">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Dashboard de Storage
+                </CardTitle>
+                <CardDescription>
+                  Visão geral do uso de armazenamento nas contas B2
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <StorageDashboard />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* AI Chat Tab */}
+          <TabsContent value="ai-chat">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-primary" />
+                  Assistente de IA
+                </CardTitle>
+                <CardDescription>
+                  Converse com o Gemini para planejar novas funcionalidades e melhorias
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AIChatPanel />
               </CardContent>
             </Card>
           </TabsContent>
