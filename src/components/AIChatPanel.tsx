@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Loader2, Bot, User, Trash2 } from 'lucide-react';
+import { Send, Loader2, Bot, User, Trash2, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 
@@ -14,7 +14,37 @@ const MODELS = [
   { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
 ];
 
-const SYSTEM_PROMPT = `Você é um assistente de IA especializado em desenvolvimento web. Você ajuda a planejar novas funcionalidades, escrever código, e sugerir melhorias para o site. Responda sempre em português brasileiro. Use markdown para formatar suas respostas.`;
+const QUICK_PROMPTS = [
+  'Sugira 5 novas funcionalidades para o site',
+  'Como adicionar sistema de comentários nos vídeos?',
+  'Crie uma página de perfil do usuário',
+  'Como implementar notificações push?',
+  'Sugira melhorias de performance',
+];
+
+function CodeBlock({ children, className }: { children: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const lang = className?.replace('language-', '') || '';
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative group">
+      <div className="flex items-center justify-between bg-background/80 rounded-t-md px-3 py-1 text-xs text-muted-foreground border border-border border-b-0">
+        <span>{lang || 'code'}</span>
+        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={handleCopy}>
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? 'Copiado!' : 'Copiar'}
+        </Button>
+      </div>
+      <pre className="!mt-0 !rounded-t-none"><code className={className}>{children}</code></pre>
+    </div>
+  );
+}
 
 export function AIChatPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -22,14 +52,13 @@ export function AIChatPanel() {
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState('gemini-2.5-flash');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
+  const sendMessage = async (text?: string) => {
+    const trimmed = (text || input).trim();
     if (!trimmed || isLoading) return;
 
     const userMsg: Message = { role: 'user', content: trimmed };
@@ -49,7 +78,7 @@ export function AIChatPanel() {
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...allMessages],
+          messages: allMessages,
           model,
         }),
       });
@@ -81,7 +110,6 @@ export function AIChatPanel() {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            // Gemini SSE format
             const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text) {
               assistantSoFar += text;
@@ -94,14 +122,13 @@ export function AIChatPanel() {
               });
             }
           } catch {
-            // partial JSON, wait for more data
+            // partial JSON
           }
         }
       }
     } catch (e: any) {
       console.error('AI Chat error:', e);
       toast.error(e.message || 'Erro ao comunicar com a IA');
-      // Remove user message if no response
       if (!assistantSoFar) {
         setMessages(prev => prev.slice(0, -1));
       }
@@ -123,7 +150,10 @@ export function AIChatPanel() {
       <div className="flex items-center justify-between pb-3 border-b border-border">
         <div className="flex items-center gap-2">
           <Bot className="w-5 h-5 text-primary" />
-          <span className="font-medium text-foreground">Chat com Gemini</span>
+          <span className="font-medium text-foreground">Assistente RezeFlix</span>
+          <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+            Conhece todo o projeto
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <Select value={model} onValueChange={setModel}>
@@ -151,11 +181,24 @@ export function AIChatPanel() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto py-4 space-y-4">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <Bot className="w-16 h-16 text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground text-sm">
-              Comece uma conversa! Peça sugestões de novas funções, ajuda com código, ou ideias para melhorar o site.
+            <p className="text-foreground font-medium mb-2">Assistente do RezeFlix</p>
+            <p className="text-muted-foreground text-sm mb-6">
+              Eu conheço todo o projeto — banco de dados, edge functions, componentes, tudo. 
+              Peça novas funcionalidades e eu gero o código completo para você colar no Lovable.
             </p>
+            <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+              {QUICK_PROMPTS.map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => sendMessage(prompt)}
+                  className="text-xs px-3 py-2 rounded-lg bg-secondary text-foreground hover:bg-primary/20 hover:text-primary transition-colors text-left"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.filter(m => m.role !== 'system').map((msg, i) => (
@@ -166,15 +209,27 @@ export function AIChatPanel() {
               </div>
             )}
             <div
-              className={`max-w-[80%] rounded-lg px-4 py-3 text-sm ${
+              className={`max-w-[85%] rounded-lg px-4 py-3 text-sm ${
                 msg.role === 'user'
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-secondary text-foreground'
               }`}
             >
               {msg.role === 'assistant' ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background [&_pre]:rounded-md [&_pre]:p-3 [&_code]:text-xs">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                <div className="prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background [&_pre]:rounded-md [&_pre]:p-3 [&_pre]:border [&_pre]:border-border [&_code]:text-xs [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2">
+                  <ReactMarkdown
+                    components={{
+                      code({ className, children, ...props }) {
+                        const isInline = !className;
+                        if (isInline) {
+                          return <code className="bg-background px-1 py-0.5 rounded text-xs" {...props}>{children}</code>;
+                        }
+                        return <CodeBlock className={className}>{String(children).replace(/\n$/, '')}</CodeBlock>;
+                      }
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
                 </div>
               ) : (
                 <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -193,7 +248,10 @@ export function AIChatPanel() {
               <Bot className="w-4 h-4 text-primary" />
             </div>
             <div className="bg-secondary rounded-lg px-4 py-3">
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground">Pensando...</span>
+              </div>
             </div>
           </div>
         )}
@@ -204,16 +262,15 @@ export function AIChatPanel() {
       <div className="border-t border-border pt-3">
         <div className="flex gap-2">
           <Textarea
-            ref={textareaRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Digite sua mensagem... (Enter para enviar, Shift+Enter para nova linha)"
+            placeholder="Peça uma nova funcionalidade, código, ou melhorias... (Enter para enviar)"
             className="bg-secondary resize-none min-h-[44px] max-h-[120px]"
             rows={1}
           />
           <Button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim() || isLoading}
             size="icon"
             className="shrink-0 self-end"
@@ -221,6 +278,9 @@ export function AIChatPanel() {
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground mt-1.5">
+          💡 Copie o código gerado e cole no Lovable para implementar
+        </p>
       </div>
     </div>
   );
